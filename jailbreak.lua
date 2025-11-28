@@ -1359,6 +1359,13 @@ local function isCovered(position, targetPlayer)
     if targetPlayer and targetPlayer.Character then
         table.insert(excludeList, targetPlayer.Character)
     end
+    
+    local vFolder = Workspace:FindFirstChild("Vehicles")
+    if vFolder then
+        for _, vehicle in ipairs(vFolder:GetChildren()) do
+            table.insert(excludeList, vehicle)
+        end
+    end
 
     raycastParams.FilterDescendantsInstances = excludeList
     raycastParams.IgnoreWater = true
@@ -1757,6 +1764,8 @@ local function enterVehicleRoutine(vehicle)
     
     if not root or not prim or not prim.Parent then
         ActionInProgress = false
+        CurrentVehicle = nil
+        VehicleRetryCount = VehicleRetryCount + 1
         return false
     end
     
@@ -1777,16 +1786,23 @@ local function enterVehicleRoutine(vehicle)
     local targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
     local t = tick()
     while (v3new(root.Position.X, 0, root.Position.Z) - v3new(prim.Position.X, 0, prim.Position.Z)).Magnitude > 10 and (tick() - t) < 10 do
+        prim = vehicle.PrimaryPart
         if not prim or not prim.Parent then
             ActionInProgress = false
+            CurrentVehicle = nil
+            VehicleRetryCount = VehicleRetryCount + 1
             return false
         end
+        targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
         flyToLocation(targetPosXZ, false)
         task.wait()
     end
     
+    prim = vehicle.PrimaryPart
     if not prim or not prim.Parent then
         ActionInProgress = false
+        CurrentVehicle = nil
+        VehicleRetryCount = VehicleRetryCount + 1
         return false
     end
     
@@ -1796,6 +1812,12 @@ local function enterVehicleRoutine(vehicle)
     local key = KeyMap[VEHICLE_ENTRY_STABLE_KEY]
     if key then
         for i = 1, 5 do
+            if not vehicle.PrimaryPart or not vehicle.PrimaryPart.Parent then
+                ActionInProgress = false
+                CurrentVehicle = nil
+                VehicleRetryCount = VehicleRetryCount + 1
+                return false
+            end
             Remote:FireServer(key, vehicle, vehicle.Seat)
             if getHumanoid() and getHumanoid().Sit then break end
             task.wait(0.15)
@@ -1805,15 +1827,19 @@ local function enterVehicleRoutine(vehicle)
     task.wait(0.2)
     
     local hum = getHumanoid()
-    if hum and hum.Sit then
+    if hum and hum.Sit and vehicle.PrimaryPart and vehicle.PrimaryPart.Parent then
         CurrentVehicle = vehicle
         VehicleRetryCount = 0
-        safeVerticalTeleport(v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z))
+        safeVerticalTeleport(v3new(vehicle.PrimaryPart.Position.X, HOVER_HEIGHT, vehicle.PrimaryPart.Position.Z))
         ActionInProgress = false
         return true
     else
         CurrentVehicle = nil
-        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+        VehicleRetryCount = VehicleRetryCount + 1
+        root = getHRP()
+        if root then
+            safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+        end
         ActionInProgress = false
         return false
     end
@@ -1899,6 +1925,9 @@ local function getBestTarget()
     return nil
 end
 
+
+
+
 local function shoot()
     local gun = require(ReplicatedStorage.Game.ItemSystem.ItemSystem).GetLocalEquipped()
     if gun then
@@ -1936,14 +1965,13 @@ local function shootTargetVehicle(target)
     if not folder then return end
     
     local pistol = folder:FindFirstChild("Pistol")
-    if not pistol then 
-        return 
-    end
+    if not pistol then return end
     
     local vehiclePart = getTargetVehiclePart(target)
-    if not vehiclePart then
-        return
-    end
+    if not vehiclePart then return end
+    
+    local targetVehicle = vehiclePart.Parent
+    if not targetVehicle then return end
     
     pistol.InventoryEquipRemote:FireServer(true)
     task.wait(0.2)
@@ -1956,14 +1984,50 @@ local function shootTargetVehicle(target)
     
     setupSilentAim(vehiclePart)
     
-    for i = 1, 15 do
-        shoot()
-        task.wait(0.2)
-    end
+    local shootStartTime = tick()
+    local MAX_SHOOT_TIME = 30
+    local shotsFired = 0
+    local SHOTS_PER_MAG = 12
     
-    if reloadRemote and reloadRemote:IsA("RemoteEvent") then
-        reloadRemote:FireServer()
-        task.wait(0.5)
+    while (tick() - shootStartTime) < MAX_SHOOT_TIME do
+        vehiclePart = getTargetVehiclePart(target)
+        if not vehiclePart then break end
+        
+        targetVehicle = vehiclePart.Parent
+        if not targetVehicle then break end
+        
+        shootTarget = vehiclePart
+        
+        local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
+        if not tireHealth or tireHealth <= 0 then
+            break
+        end
+        
+        local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
+        local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not tHum or not tRoot then
+            break
+        end
+        
+        local vehiclePos = targetVehicle.PrimaryPart and targetVehicle.PrimaryPart.Position
+        if not vehiclePos then break end
+        
+        local distToVehicle = (tRoot.Position - vehiclePos).Magnitude
+        if distToVehicle > 10 then
+            break 
+        end
+        
+        shoot()
+        shotsFired = shotsFired + 1
+        task.wait(0.2)
+        
+        if shotsFired >= SHOTS_PER_MAG then
+            if reloadRemote and reloadRemote:IsA("RemoteEvent") then
+                reloadRemote:FireServer()
+                task.wait(0.5)
+                shotsFired = 0
+            end
+        end
     end
     
     resetSilentAim()
@@ -2016,9 +2080,7 @@ local function arrestSequence(target)
         
         if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
             lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then
-                break
-            end
+            if isCovered(tRoot.Position, target) then break end
         end
         
         local currentTargetPos = tRoot.Position
@@ -2053,9 +2115,7 @@ local function arrestSequence(target)
         
         if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
             lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then
-                break
-            end
+            if isCovered(tRoot.Position, target) then break end
         end
         
         local currentTargetPos = tRoot.Position
@@ -2083,22 +2143,35 @@ local function arrestSequence(target)
     if CurrentVehicle and CurrentVehicle.PrimaryPart then
         killVelocity(CurrentVehicle.PrimaryPart)
     end
+
     exitVehicleRoutine()
-    task.wait(0.2)
+    task.wait(0.3)
+    
+    local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
+    if tHum and tHum.Sit then
+        print("Target is in vehicle, shooting tires...")
+        shootTargetVehicle(target)
+        task.wait(0.2)
+    end
 
-    shootTargetVehicle(target)
+    local tChar = target.Character
+    tHum = tChar and tChar:FindFirstChild("Humanoid")
+    local targetVehicleToEject = tHum and tHum.SeatPart and tHum.SeatPart.Parent
 
-    local targetVehicle = getClosestVehicleToPlayer(target)
-    if targetVehicle and ejectKey then
+    if targetVehicleToEject and ejectKey then
         for i = 1, 5 do
+            local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
+            if not (tHumCheck and tHumCheck.Sit) then break end
+            
             if folder and folder:FindFirstChild("Handcuffs") then
                 folder.Handcuffs.InventoryEquipRemote:FireServer(true)
             end
-            Remote:FireServer(ejectKey, targetVehicle)
-            task.wait(0.1)
+            Remote:FireServer(ejectKey, targetVehicleToEject)
+            task.wait(0.08)
         end
     end
-    task.wait(0.2)
+    
+    task.wait(0.1)
     
     if folder and folder:FindFirstChild("Handcuffs") then
         folder.Handcuffs.InventoryEquipRemote:FireServer(true)
@@ -2121,9 +2194,7 @@ local function arrestSequence(target)
         
         if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
             lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then
-                break
-            end
+            if isCovered(tRoot.Position, target) then break end
         end
         
         local tPos = tRoot.Position
@@ -2183,6 +2254,7 @@ local function arrestSequence(target)
     ActionInProgress = false
     return success
 end
+
 
 local function startCoverageMonitor()
     if CoverageCheckConnection then return end
