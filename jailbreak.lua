@@ -1141,20 +1141,53 @@ end
 
 
 
+
+
+
+
+local keys, network = loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/dumper.lua"))()
+
+local tagUtils = require(game:GetService("ReplicatedStorage").Tag.TagUtils)
+
+local oldIsPointInTag = tagUtils.isPointInTag
+tagUtils.isPointInTag = function(point, tag)
+    if tag == "NoRagdoll" or tag == "NoFallDamage" or tag == "NoParachute" then 
+        return true
+    end
+    
+    return oldIsPointInTag(point, tag)
+end
+
+local oldFireServer = getupvalue(network.FireServer, 1)
+setupvalue(network.FireServer, 1, function(key, ...)
+    if key == keys.Damage then
+        return
+    end
+
+    return oldFireServer(key, ...)
+end)
+
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
+
 local ARREST_STABLE_KEY = "n90a2oyr"        
-local VEHICLE_ENTRY_STABLE_KEY = "eol2ojbr"  
-local VEHICLE_EXIT_STABLE_KEY = "ofu0irqi"   
-local VEHICLE_EJECT_STABLE_KEY = "frxkxciw"  
+local VEHICLE_ENTRY_STABLE_KEY = keys.EnterCar
+local VEHICLE_EXIT_STABLE_KEY = keys.ExitCar   
+local VEHICLE_EJECT_STABLE_KEY = keys.Eject  
+local redeemCode = keys.RedeemCode
+
+
+print(ARREST_STABLE_KEY)
+
 
 local HOVER_HEIGHT = 700
-local MIN_HEIGHT_ABOVE_GROUND = 30
-local DROP_OFFSET_STUDS = 10
+local MIN_HEIGHT_ABOVE_GROUND = 0
+local DROP_OFFSET_STUDS = 0
 local FLY_SPEED_CAR = 500
 local FLY_SPEED_FOOT = 100      
 local ROOF_RAYCAST_HEIGHT = 150    
@@ -1172,6 +1205,11 @@ local RETRY_COOLDOWN = 1
 
 local COVERAGE_CHECK_INTERVAL = 0.1
 local MAX_COVERED_TIME = 5 
+
+local ARREST_CHASE_RANGE = 20
+local ARREST_LOOP_DELAY = 0.1
+local SHOOT_COOLDOWN = 0.15
+
 
 local ALLOWED_VEHICLES = {
     ["Jeep"] = true,
@@ -1226,7 +1264,7 @@ local SPAWN_PATHS = {
     },
 }
 
-local SPAWN_PATH_TOLERANCE = 15 
+local SPAWN_PATH_TOLERANCE = 5 
 
 local LocalPlayer = Players.LocalPlayer
 local Remote = nil
@@ -1264,7 +1302,7 @@ do
             local ups = debug.getupvalues(v)
             if #ups >= 3 and typeof(ups[2]) == "Instance" and type(ups[3]) == "table" then
                 local rawTable = ups[3]
-                if rawTable[ARREST_STABLE_KEY] then
+                if rawTable[redeemCode] then
                     Remote = ups[2]
                     for shortKey, uuid in pairs(rawTable) do
                         if type(shortKey) == "string" and type(uuid) == "string" then
@@ -1638,7 +1676,7 @@ local function cleanupState()
             if hum.Sit then
                 local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
                 if key then Remote:FireServer(key) end
-                task.wait(0.1)
+                task.wait(0.05)
             end
             safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
             ActionInProgress = false
@@ -1649,7 +1687,7 @@ local function cleanupState()
     if hum.Sit and not CurrentVehicle then
         local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
         if key then Remote:FireServer(key) end
-        task.wait(0.1)
+        task.wait(0.05) 
         safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
         ActionInProgress = false
         return
@@ -1664,7 +1702,7 @@ local function cleanupState()
             if hum.Sit then
                 local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
                 if key then Remote:FireServer(key) end
-                task.wait(0.1)
+                task.wait(0.05) 
             end
             
             safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
@@ -1820,11 +1858,11 @@ local function enterVehicleRoutine(vehicle)
             end
             Remote:FireServer(key, vehicle, vehicle.Seat)
             if getHumanoid() and getHumanoid().Sit then break end
-            task.wait(0.15)
+            task.wait(0.1) 
         end
     end
     
-    task.wait(0.2)
+    task.wait(0.1) 
     
     local hum = getHumanoid()
     if hum and hum.Sit and vehicle.PrimaryPart and vehicle.PrimaryPart.Parent then
@@ -1853,7 +1891,7 @@ local function exitVehicleRoutine()
     if key then
         Remote:FireServer(key)
     end
-    task.wait(0.05)
+    task.wait() 
     ExitedCarRef = CurrentVehicle
     CurrentVehicle = nil
 end
@@ -1974,20 +2012,22 @@ local function shootTargetVehicle(target)
     if not targetVehicle then return end
     
     pistol.InventoryEquipRemote:FireServer(true)
-    task.wait(0.2)
+    task.wait(0.1) 
     
     local reloadRemote = pistol:FindFirstChild("Reload")
-    if reloadRemote and reloadRemote:IsA("RemoteEvent") then
-        reloadRemote:FireServer()
-        task.wait(0.5)
+    
+    local currentAmmo = pistol:GetAttribute("AmmoCurrentLocal")
+    if not currentAmmo or currentAmmo <= 0 then
+        if reloadRemote and reloadRemote:IsA("RemoteEvent") then
+            reloadRemote:FireServer()
+            task.wait(0.3) 
+        end
     end
     
     setupSilentAim(vehiclePart)
     
     local shootStartTime = tick()
-    local MAX_SHOOT_TIME = 30
-    local shotsFired = 0
-    local SHOTS_PER_MAG = 12
+    local MAX_SHOOT_TIME = 10
     
     while (tick() - shootStartTime) < MAX_SHOOT_TIME do
         vehiclePart = getTargetVehiclePart(target)
@@ -2017,17 +2057,17 @@ local function shootTargetVehicle(target)
             break 
         end
         
-        shoot()
-        shotsFired = shotsFired + 1
-        task.wait(0.2)
-        
-        if shotsFired >= SHOTS_PER_MAG then
+        currentAmmo = pistol:GetAttribute("AmmoCurrentLocal")
+        if currentAmmo and currentAmmo > 0 then
+            shoot()
+        else
             if reloadRemote and reloadRemote:IsA("RemoteEvent") then
                 reloadRemote:FireServer()
-                task.wait(0.5)
-                shotsFired = 0
+                task.wait(0.3) 
             end
         end
+        
+        task.wait(SHOOT_COOLDOWN) 
     end
     
     resetSilentAim()
@@ -2035,6 +2075,8 @@ local function shootTargetVehicle(target)
     pistol.InventoryEquipRemote:FireServer(false)
     task.wait(0.1)
 end
+
+
 
 local function arrestSequence(target)
     ActionInProgress = true
@@ -2178,6 +2220,12 @@ local function arrestSequence(target)
         task.wait(0.1)
     end
     
+    
+    local targetPath = {}
+    local pathRecordTime = tick()
+    local PATH_RECORD_INTERVAL = 0.05
+    local PATH_FOLLOW_OFFSET = 0.01 
+    
     local chaseStartTime = tick()
     local CHASE_TIMEOUT = 10
     local success = false
@@ -2191,10 +2239,13 @@ local function arrestSequence(target)
             break
         end
         if (tick() - chaseStartTime) > CHASE_TIMEOUT then break end
-        
-        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
-            lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then break end
+
+        if (tick() - pathRecordTime) >= PATH_RECORD_INTERVAL then
+            table.insert(targetPath, {
+                Position = tRoot.Position,
+                Time = tick()
+            })
+            pathRecordTime = tick()
         end
         
         local tPos = tRoot.Position
@@ -2202,8 +2253,30 @@ local function arrestSequence(target)
         if not root then break end
         
         local dist = (root.Position - tPos).Magnitude
+        local chaseTarget = nil
         
-        local chaseTarget = v3new(tPos.X, tPos.Y + 3, tPos.Z)
+        local followTime = tick() - PATH_FOLLOW_OFFSET
+        local bestFollowPos = nil
+        
+        while targetPath[1] and targetPath[1].Time < (followTime - 4.5) do
+            table.remove(targetPath, 1)
+        end
+
+        for i = 1, #targetPath do
+            if targetPath[i].Time >= followTime then
+                bestFollowPos = targetPath[math.max(1, i-1)].Position
+                break
+            elseif i == #targetPath then
+                bestFollowPos = targetPath[i].Position
+            end
+        end
+        
+        if bestFollowPos then
+            chaseTarget = v3new(bestFollowPos.X, bestFollowPos.Y + 3, bestFollowPos.Z)
+        else
+            chaseTarget = v3new(tPos.X, tPos.Y + 3, tPos.Z)
+        end
+        
         flyTowards3D(chaseTarget, FLY_SPEED_FOOT, root)
         
         if dist < 25 and arrestKey then
@@ -2441,10 +2514,9 @@ end)
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
-Tab:Toggle("Toggle Auto Arrest","Toggle",false,function(Value)
+Tab:Toggle("Toggle Arrest","Toggle",false,function(Value)
     ToggleAutoArrest()
 end)
-
 
 
 
@@ -2466,73 +2538,3 @@ end)
 SettingsTab:KeyBind("Toggle UI","RightShift",function(Value)
     ToggleUI()
 end)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
---[[
-local Tab = Lib:Tab("Player")
-local Tab2 = Lib:Tab("Enviroment")
-
-Tab:Section("Section")
-
-Tab:Button("Button",function()
-    print("Button Pressed")
-end)
-
-Tab:Label("Label")
-
-Tab:Toggle("Toggle","Toggle",true,function(Value)
-    print(Value)
-end)
-
-Tab:KeyBind("Keybind","P",function(Value)
-    print(Value)
-end)
-
-Tab:TextBox("TextBox","TextBox","Text Here",function(Value)
-    print(Value)
-end)
-
-Tab:Dropdown("Dropdown","Dropdown",{"Synapse","ScriptWare","Shitnel","Krnl","Pedohurt"},true,function(Value)
-    print(Value)
-end)
-
-Tab:Slider("Slider","Slider",1,1,50,false,function(Value)
-    print(Value)
-end)
-
-Tab:Section("Section2")
-
-Tab:Button("Destroy UI",function()
-    DestroyUI()
-end)
-
-Tab:KeyBind("Toggle UI","RightShift",function(Value)
-    ToggleUI()
-end)
-
-
-
-
-
-
-
-
-
---]]
