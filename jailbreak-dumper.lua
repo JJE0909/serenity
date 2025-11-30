@@ -1,11 +1,3 @@
--- NOT MADE BY ME TYSM TO THE ORIGINAL OWNER
-
---// Check if already in env
-
-if networkKeys and network then 
-    return networkKeys, network
-end
-
 --// Wait for game load
 
 if not game:IsLoaded() then
@@ -240,16 +232,32 @@ do -- punch
 end
 
 do -- arrest / pickpocket / breakout
-    local characterInteractFunction = errorHandle(function()
-        return getupvalue(getupvalue(require(ReplicatedStorage.App.CharacterBinder)._classAddedSignal._handlerListHead._fn, 1), 2)
-    end)
+    local characterInteractFunction = (function()
+        local success, func = pcall(function()
+            -- Original starting point for the interaction binder
+            return getupvalue(getupvalue(require(ReplicatedStorage.App.CharacterBinder)._classAddedSignal._handlerListHead._fn, 1), 2)
+        end)
+        return func
+    end)()
 
     keyFunctions.Arrest = function(backup)
-        if backup then
-            return getupvalue(getupvalue(characterInteractFunction, 1), 7)
-        else
-            return getupvalue(characterInteractFunction, 1)
+        -- Attempt direct, highly probable index 1
+        local func_to_check = getupvalue(characterInteractFunction, 1)
+        if typeof(func_to_check) == "function" then
+            return func_to_check
         end
+
+        -- Backup attempt (e.g., if the upvalue shifted to index 2)
+        if backup then
+            local backup_func = getupvalue(characterInteractFunction, 2)
+            if typeof(backup_func) == "function" then
+                return backup_func
+            end
+            -- Old backup method if the simple shift failed
+            return getupvalue(getupvalue(characterInteractFunction, 1), 7)
+        end
+        
+        return characterInteractFunction -- Will likely fail fetching, but keeps script alive
     end
 
     keyFunctions.Pickpocket = function()
@@ -272,9 +280,12 @@ do -- broadcastinputbegan / broadcastinputended
 end
 
 do -- eject / hijack / entercar
-    local seatInteractFunction = errorHandle(function()
-        return getupvalue(getconnections(CollectionService:GetInstanceAddedSignal("VehicleSeat"))[1].Function, 1)
-    end)
+    local seatInteractFunction = (function()
+        local success, func = pcall(function()
+            return getupvalue(getconnections(CollectionService:GetInstanceAddedSignal("VehicleSeat"))[1].Function, 1)
+        end)
+        return func
+    end)()
     
     keyFunctions.Hijack = function()
         return getupvalue(seatInteractFunction, 1)
@@ -294,9 +305,12 @@ do -- eject / hijack / entercar
 end
 
 do -- robstart / robend
-    local robFunction = errorHandle(function()
-        return getupvalue(getconnections(CollectionService:GetInstanceAddedSignal("SmallStore"))[1].Function, 1)
-    end)
+    local robFunction = (function()
+        local success, func = pcall(function()
+            return getupvalue(getconnections(CollectionService:GetInstanceAddedSignal("SmallStore"))[1].Function, 1)
+        end)
+        return func
+    end)()
 
     local foundKeys, orginalConstants, modifiedConstants, prefixIndexes = errorHandleMultiSearch(robFunction, { "RobEnd", "RobStart" })
 
@@ -397,37 +411,109 @@ end
 
 for keyName, keyFunction in keyFunctions do
     local success, errorMessage = pcall(function()
-        networkKeys[keyName] = fetchKey(keyFunction()) or "Failed to fetch key"
+        local func = keyFunction()
+        if typeof(func) ~= "function" then
+             error("Key function returned nil/bad value")
+        end
+        networkKeys[keyName] = fetchKey(func) or "Failed to fetch key"
     end)
 
     if not success or networkKeys[keyName] == "Failed to fetch key" then
         if backupKeys[keyName] then
-            success, errorMessage = pcall(function()
-                networkKeys[keyName] = fetchKey(keyFunction(true)) or "Failed to fetch key"
+            local backupSuccess, backupErrorMessage = pcall(function()
+                local func = keyFunction(true)
+                if typeof(func) ~= "function" then
+                    error("Key backup function returned nil/bad value")
+                end
+                networkKeys[keyName] = fetchKey(func) or "Failed to fetch key"
             end)
-        end
-
-        if not success then
+            if not backupSuccess then
+                 networkKeys[keyName] = ("Failed to fetch key ( %s )"):format(backupErrorMessage)
+            end
+        else
             networkKeys[keyName] = ("Failed to fetch key ( %s )"):format(errorMessage)
         end
     end
 end
 
+--- Comprehensive GC Scan for ALL Remotes (New Logic) ---
+
+local foundRemotesCount = 0
+local knownKeys = {} -- Set of keys found by targeted search
+for _, key in pairs(networkKeys) do
+    if key ~= "Failed to fetch key" and not key:match("Failed to fetch key") then
+        knownKeys[key] = true
+    end
+end
+
+local function CollectAllRemotes()
+    local all_remotes = {}
+
+    local success, gc_data = pcall(getgc, true)
+    if not success then
+        print("WARNING: getgc() failed. Cannot perform full remote scan.")
+        return all_remotes
+    end
+
+    for _, obj in pairs(gc_data) do
+        if typeof(obj) == "function" then
+            local pcall_success, upvalues = pcall(getupvalues, obj)
+            if pcall_success then
+                for _, upval in pairs(upvalues) do
+                    -- Check if any upvalue is the FireServer function (a strong indicator of a network wrapper)
+                    if upval == network.FireServer then
+                        local func_name = tostring(obj)
+                        
+                        -- Now check the function's constants for the actual key string
+                        local fetch_success, fetched_keys = pcall(fetchKey, obj, nil, true)
+                        
+                        if fetch_success and fetched_keys and #fetched_keys > 0 then
+                            for _, key_info in pairs(fetched_keys) do
+                                local key = key_info[1]
+                                
+                                if not knownKeys[key] and not all_remotes[key] then
+                                    -- Add key only if it hasn't been found by the targeted search
+                                    -- Assign a generic name based on the function's constant
+                                    local key_label = getconstants(obj)[1] or "GenericRemote_" .. tostring(foundRemotesCount + 1)
+                                    all_remotes[key] = key_label
+                                    foundRemotesCount = foundRemotesCount + 1
+                                end
+                            end
+                        end
+                        
+                        break -- Found the FireServer upvalue, stop checking this function's upvalues
+                    end
+                end
+            end
+        end
+    end
+
+    return all_remotes
+end
+
+local allFoundRemotes = CollectAllRemotes()
+
+-- Merge all new unique remotes into networkKeys with a generic prefix
+for key, label in pairs(allFoundRemotes) do
+    networkKeys["GC_FOUND_" .. label:gsub(" ", "_")] = key
+end
+
+
 --// Return variables
 
 local environment = getgenv()
-
 environment.networkKeys, environment.network = networkKeys, network
 
-if debugOutput or debugOutput == nil then -- defaults to true unless explicitly set to false
-    rconsolename("Jailbreak Key Fetcher - Made by Introvert")
-    rconsolewarn(("Key Fetcher Loaded in %s Seconds\n"):format(os.clock() - startTime))
+print("--- Jailbreak Key Fetcher - Made by Introvert ---")
+print(string.format("Key Fetcher Loaded in %.3f Seconds", os.clock() - startTime))
+print("--- Discovered Network Keys ---")
     
+if next(networkKeys) then
     for index, key in networkKeys do
-        rconsoleprint(("%s : %s\n"):format(index, key))
+        print(string.format("%s : %s", index, key))
     end
 else
-    warn(("Key Fetcher Loaded in %s Seconds"):format(os.clock() - startTime))
+    print("WARNING: networkKeys table is empty. Script likely failed during fetching.")
 end
 
 return networkKeys, network
