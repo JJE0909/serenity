@@ -240,25 +240,9 @@ do -- arrest / pickpocket / breakout
         return func
     end)()
 
-    keyFunctions.Arrest = function(backup)
-        -- Attempt direct, highly probable index 1
-        local func_to_check = getupvalue(characterInteractFunction, 1)
-        if typeof(func_to_check) == "function" then
-            return func_to_check
-        end
-
-        -- Backup attempt (e.g., if the upvalue shifted to index 2)
-        if backup then
-            local backup_func = getupvalue(characterInteractFunction, 2)
-            if typeof(backup_func) == "function" then
-                return backup_func
-            end
-            -- Old backup method if the simple shift failed
-            return getupvalue(getupvalue(characterInteractFunction, 1), 7)
-        end
-        
-        return characterInteractFunction -- Will likely fail fetching, but keeps script alive
-    end
+    local arrest = getupvalue(getupvalue(getupvalue(modules.characterBinder._classAddedSignal._handlerListHead._fn, 1), 2), 3)
+    local arrest1 = getupvalue(arrest, 7)
+    keyFunctions.Arrest = typeof(arrest1) == 'function' and arrest1 or arrest
 
     keyFunctions.Pickpocket = function()
         return getupvalue(characterInteractFunction, 4)
