@@ -2788,8 +2788,11 @@ local function MainLoop()
                 local distPatrol = (root.Position - patrol).Magnitude
                 flyToLocation(patrol, true)
                 local TeleportService = game:GetService("TeleportService")
-                queue_on_teleport(loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))())
+                queue_on_teleport([[
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
+                ]])
                 TeleportService:Teleport(game.PlaceId, Player)
+
             end
         end
     end
