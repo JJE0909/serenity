@@ -240,8 +240,9 @@ do -- arrest / pickpocket / breakout
         return func
     end)()
 
-    local arrest = getupvalue(getupvalue(getupvalue(modules.characterBinder._classAddedSignal._handlerListHead._fn, 1), 2), 3)
+    local arrest = getupvalue(getupvalue(getupvalue(ReplicatedStorage.App.CharacterBinder._classAddedSignal._handlerListHead._fn, 1), 2), 3)
     local arrest1 = getupvalue(arrest, 7)
+    arrest = getHash(functions.arrest, 1, 1),
     keyFunctions.Arrest = typeof(arrest1) == 'function' and arrest1 or arrest
 
     keyFunctions.Pickpocket = function()
