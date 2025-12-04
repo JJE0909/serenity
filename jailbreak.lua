@@ -2,7 +2,7 @@ local library = {}
 library.flags = {}
 library.currentTab = nil
 local toggled = false
-local mouse = game.Players.LocalPlayer:GetMouse()
+local mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local theme = {
 	main = Color3.fromRGB(37, 37, 37),
@@ -1145,7 +1145,7 @@ end
 
 
 
-local keys, network = loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/dumper.lua"))()
+local keys, network = loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak-dumper"))()
 
 local tagUtils = require(game:GetService("ReplicatedStorage").Tag.TagUtils)
 
@@ -1175,7 +1175,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
 
-local ARREST_STABLE_KEY = "n90a2oyr"        
+local JOIN_TEAM_STABLE_KEY = keys.JoinTeam
+local ARREST_STABLE_KEY = keys.Arrest        
 local VEHICLE_ENTRY_STABLE_KEY = keys.EnterCar
 local VEHICLE_EXIT_STABLE_KEY = keys.ExitCar   
 local VEHICLE_EJECT_STABLE_KEY = keys.Eject  
@@ -1188,7 +1189,7 @@ print(ARREST_STABLE_KEY)
 local HOVER_HEIGHT = 700
 local MIN_HEIGHT_ABOVE_GROUND = 0
 local DROP_OFFSET_STUDS = 0
-local FLY_SPEED_CAR = 500
+local FLY_SPEED_CAR = 450
 local FLY_SPEED_FOOT = 100      
 local ROOF_RAYCAST_HEIGHT = 150    
 local JAIL_TELEPORT_DIST = 10000  
@@ -1414,13 +1415,26 @@ local function isCovered(position, targetPlayer)
     return ray ~= nil
 end
 
+-- NOTE: This function relies on global variables CurrentVehicle and ExitedCarRef
+-- and requires HOVER_RAYCAST_HEIGHT to be defined elsewhere.
+
 local function amICovered()
     local root = getHRP()
     if not root then return false end
     
+    local partsToExclude = {LocalPlayer.Character}
+    
+    if CurrentVehicle then
+        table.insert(partsToExclude, CurrentVehicle)
+    end
+    
+    if ExitedCarRef then
+        table.insert(partsToExclude, ExitedCarRef)
+    end
+    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, CurrentVehicle}
+    raycastParams.FilterDescendantsInstances = partsToExclude
     raycastParams.IgnoreWater = true
     
     local startPosition = root.Position + Vector3.new(0, 5, 0)
@@ -1998,6 +2012,85 @@ local function resetSilentAim()
     shootTarget = nil
 end
 
+local function getVehicleBackPosition(targetVehicle, targetRoot)
+    -- This function determines the position 8 studs behind the target vehicle's primary part.
+    if not targetVehicle or not targetVehicle.PrimaryPart then return nil end
+    if not targetRoot then return nil end
+    
+    local vehiclePart = targetVehicle.PrimaryPart
+    local vehicleCFrame = vehiclePart.CFrame
+    
+    -- The LookVector is the direction the vehicle is traveling/facing.
+    local lookVector = vehicleCFrame.LookVector
+    -- Back offset is the negative of the look vector.
+    local backOffset = -lookVector * 8
+    
+    local backPosition = vehiclePart.Position + backOffset
+    
+    return backPosition, lookVector
+end
+
+local function ramTargetVehicle(target)
+    if not CurrentVehicle or not CurrentVehicle.PrimaryPart then return false end
+    
+    local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not tRoot then return false end
+    
+    -- Assuming getClosestVehicleToPlayer is defined elsewhere
+    local targetVehicle = getClosestVehicleToPlayer(target)
+    if not targetVehicle or not targetVehicle.PrimaryPart then return false end
+    
+    local backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
+    if not backPos then return false end
+    
+    local myVehicle = CurrentVehicle
+    local myPart = myVehicle.PrimaryPart
+    
+    local ramStartTime = tick()
+    local RAM_DURATION = 1.5
+    local RAM_SPEED = 300
+    
+    while (tick() - ramStartTime) < RAM_DURATION do
+        if not myVehicle.PrimaryPart or not myVehicle.PrimaryPart.Parent then break end
+        if not targetVehicle.PrimaryPart or not targetVehicle.PrimaryPart.Parent then break end
+
+        local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
+        if not tireHealth or tireHealth <= 0 then
+            break
+        end
+        
+        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not tRoot then break end
+        
+        backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
+        if not backPos then break end
+        
+        myPart = myVehicle.PrimaryPart
+        
+        -- The position we are ramming towards (slightly into the target's back)
+        local pushInOffset = targetLookVector * -3
+        local targetRamPos = backPos + pushInOffset
+        
+        -- FIX: Removed the * CFrame.Angles(0, math.rad(180), 0) flip.
+        -- This ensures the front (Z-axis) of your vehicle faces the target's rear (backPos).
+        local targetCFrame = CFrame.lookAt(myPart.Position, backPos)
+        myVehicle:SetPrimaryPartCFrame(targetCFrame)
+        
+        -- Apply aggressive velocity towards the target ram position
+        local direction = (targetRamPos - myPart.Position).Unit
+        myPart.AssemblyLinearVelocity = direction * RAM_SPEED
+        
+        task.wait()
+    end
+    
+    if myVehicle and myVehicle.PrimaryPart then
+        -- Stop the vehicle movement after the ramming period
+        killVelocity(myVehicle.PrimaryPart)
+    end
+    
+    return true
+end
+
 local function shootTargetVehicle(target)
     local folder = LocalPlayer:FindFirstChild("Folder")
     if not folder then return end
@@ -2078,301 +2171,6 @@ end
 
 
 
-local function arrestSequence(target)
-    ActionInProgress = true
-    ExitedCarRef = nil
-    local targetName = target.Name
-    local root = getHRP()
-    local hum = getHumanoid()
-
-    local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if not tRoot then
-        ActionInProgress = false
-        return false
-    end
-    
-    local tStart = tick()
-    local ejectKey = KeyMap[VEHICLE_EJECT_STABLE_KEY]
-    local arrestKey = KeyMap[ARREST_STABLE_KEY]
-    local folder = LocalPlayer:FindFirstChild("Folder")
-
-    if amICovered() then
-        local spawnPath = findSpawnPath()
-        if spawnPath then
-            executeSpawnPath(spawnPath)
-            task.wait(1)
-        elseif not canEscapeCover() then
-            killSelf()
-            ActionInProgress = false
-            return false
-        end
-    end
-
-    if CurrentVehicle and CurrentVehicle.PrimaryPart then
-        safeVerticalTeleport(v3new(CurrentVehicle.PrimaryPart.Position.X, HOVER_HEIGHT, CurrentVehicle.PrimaryPart.Position.Z))
-    end
-    task.wait(0.1)
-
-    local lastCoverageCheck = tick()
-    
-    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
-        if not hasPlayerEscaped(target) then break end
-        
-        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
-            lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then break end
-        end
-        
-        local currentTargetPos = tRoot.Position
-        local prim = CurrentVehicle.PrimaryPart
-        root = getHRP()
-        if not root or not prim or not prim.Parent then break end
-        
-        local aboveTarget = v3new(currentTargetPos.X, HOVER_HEIGHT, currentTargetPos.Z)
-        flyTowards3D(aboveTarget, FLY_SPEED_CAR, prim)
-        
-        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
-        
-        if horizontalDist < 15 then
-            killVelocity(prim)
-            break
-        end
-        
-        if (tick() - tStart) > 30 then break end
-        task.wait()
-    end
-
-    tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if tRoot and isCovered(tRoot.Position, target) then
-        ActionInProgress = false
-        return false
-    end
-
-    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
-        if not hasPlayerEscaped(target) then break end
-        
-        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
-            lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then break end
-        end
-        
-        local currentTargetPos = tRoot.Position
-        local prim = CurrentVehicle.PrimaryPart
-        root = getHRP()
-        if not root or not prim or not prim.Parent then break end
-        
-        local targetHeight = currentTargetPos.Y + DROP_OFFSET_STUDS
-        local goalPos = v3new(currentTargetPos.X, targetHeight, currentTargetPos.Z)
-        
-        flyTowards3D(goalPos, FLY_SPEED_CAR, prim)
-        
-        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
-        local verticalDist = math.abs(prim.Position.Y - targetHeight)
-        
-        if horizontalDist < 15 and verticalDist < 15 then
-            killVelocity(prim)
-            break
-        end
-        
-        if (tick() - tStart) > 40 then break end
-        task.wait()
-    end
-
-    if CurrentVehicle and CurrentVehicle.PrimaryPart then
-        killVelocity(CurrentVehicle.PrimaryPart)
-    end
-
-    exitVehicleRoutine()
-    task.wait(0.3)
-    
-    local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
-    if tHum and tHum.Sit then
-        print("Target is in vehicle, shooting tires...")
-        shootTargetVehicle(target)
-        task.wait(0.2)
-    end
-
-    local tChar = target.Character
-    tHum = tChar and tChar:FindFirstChild("Humanoid")
-    local targetVehicleToEject = tHum and tHum.SeatPart and tHum.SeatPart.Parent
-
-    if targetVehicleToEject and ejectKey then
-        for i = 1, 5 do
-            local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
-            if not (tHumCheck and tHumCheck.Sit) then break end
-            
-            if folder and folder:FindFirstChild("Handcuffs") then
-                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
-            end
-            Remote:FireServer(ejectKey, targetVehicleToEject)
-            task.wait(0.08)
-        end
-    end
-    
-    task.wait(0.1)
-    
-    if folder and folder:FindFirstChild("Handcuffs") then
-        folder.Handcuffs.InventoryEquipRemote:FireServer(true)
-        task.wait(0.1)
-    end
-    
-    
-    local targetPath = {}
-    local pathRecordTime = tick()
-    local PATH_RECORD_INTERVAL = 0.05
-    local PATH_FOLLOW_OFFSET = 0.01 
-    
-    local chaseStartTime = tick()
-    local CHASE_TIMEOUT = 10
-    local success = false
-    safeVerticalTeleport(v3new(root.Position.X, root.Position.Y + MIN_HEIGHT_ABOVE_GROUND, root.Position.Z))
-    
-    while true do
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
-        if not hasPlayerEscaped(target) then
-            success = true
-            break
-        end
-        if (tick() - chaseStartTime) > CHASE_TIMEOUT then break end
-
-        if (tick() - pathRecordTime) >= PATH_RECORD_INTERVAL then
-            table.insert(targetPath, {
-                Position = tRoot.Position,
-                Time = tick()
-            })
-            pathRecordTime = tick()
-        end
-        
-        local tPos = tRoot.Position
-        root = getHRP()
-        if not root then break end
-        
-        local dist = (root.Position - tPos).Magnitude
-        local chaseTarget = nil
-        
-        local followTime = tick() - PATH_FOLLOW_OFFSET
-        local bestFollowPos = nil
-        
-        while targetPath[1] and targetPath[1].Time < (followTime - 4.5) do
-            table.remove(targetPath, 1)
-        end
-
-        for i = 1, #targetPath do
-            if targetPath[i].Time >= followTime then
-                bestFollowPos = targetPath[math.max(1, i-1)].Position
-                break
-            elseif i == #targetPath then
-                bestFollowPos = targetPath[i].Position
-            end
-        end
-        
-        if bestFollowPos then
-            chaseTarget = v3new(bestFollowPos.X, bestFollowPos.Y + 3, bestFollowPos.Z)
-        else
-            chaseTarget = v3new(tPos.X, tPos.Y + 3, tPos.Z)
-        end
-        
-        flyTowards3D(chaseTarget, FLY_SPEED_FOOT, root)
-        
-        if dist < 25 and arrestKey then
-            if folder and folder:FindFirstChild("Handcuffs") then
-                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
-            end
-            Remote:FireServer(arrestKey, targetName)
-            Remote:FireServer(arrestKey, targetName)
-            Remote:FireServer(arrestKey, targetName)
-        end
-        
-        local currentTargetVehicle = getClosestVehicleToPlayer(target)
-        if currentTargetVehicle and ejectKey then
-            Remote:FireServer(ejectKey, currentTargetVehicle)
-        end
-        
-        task.wait()
-    end
-    
-    killVelocity(getHRP())
-    if folder and folder:FindFirstChild("Handcuffs") then
-        folder.Handcuffs.InventoryEquipRemote:FireServer(false)
-    end
-    
-    if success then
-        ArrestRetryCount = 0
-    else
-        ArrestRetryCount = ArrestRetryCount + 1
-    end
-    
-    root = getHRP()
-    if root then
-        if amICovered() then
-            local spawnPath = findSpawnPath()
-            if spawnPath then
-                executeSpawnPath(spawnPath)
-                task.wait(1)
-            elseif not canEscapeCover() then
-                killSelf()
-                ActionInProgress = false
-                return success
-            end
-        end
-        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
-    end
-    
-    ExitedCarRef = nil
-    ActionInProgress = false
-    return success
-end
-
-
-local function startCoverageMonitor()
-    if CoverageCheckConnection then return end
-    
-    CoverageCheckConnection = task.spawn(function()
-        while AutoArrestEnabled do
-            task.wait(COVERAGE_CHECK_INTERVAL)
-            
-            if IsExecutingSpawnPath then continue end
-            
-            local root = getHRP()
-            local hum = getHumanoid()
-            if not root or not hum or hum.Health <= 0 then continue end
-            
-            if amICovered() then
-                if not SelfCoveredStartTime then
-                    SelfCoveredStartTime = tick()
-                end
-                
-                local coveredDuration = tick() - SelfCoveredStartTime
-                
-                local spawnPath = findSpawnPath()
-                if spawnPath then
-                    executeSpawnPath(spawnPath)
-                    task.wait(1)
-                    SelfCoveredStartTime = nil
-                elseif coveredDuration >= MAX_COVERED_TIME then
-                    if not canEscapeCover() then
-                        killSelf()
-                        SelfCoveredStartTime = nil
-                    end
-                end
-            else
-                SelfCoveredStartTime = nil
-            end
-        end
-    end)
-end
-
-local function stopCoverageMonitor()
-    CoverageCheckConnection = nil
-    SelfCoveredStartTime = nil
-    TargetCoveredStartTime = nil
-end
-
 local function MainLoop()
     if ActionInProgress then return end
     if IsExecutingSpawnPath then return end
@@ -2380,7 +2178,19 @@ local function MainLoop()
     local hum = getHumanoid()
     local root = getHRP()
     
-    if not root or not hum or hum.Health <= 0 then return end
+    if not root or not hum or hum.Health <= 0 then
+        -- Reset all state on death
+        ActionInProgress = false
+        CurrentVehicle = nil
+        ExitedCarRef = nil
+        VehicleRetryCount = 0
+        ArrestRetryCount = 0
+        StuckCheckPosition = nil
+        TargetPositionHistory = {}
+        SelfCoveredStartTime = nil
+        TargetCoveredStartTime = nil
+        return
+    end
     
     cleanupState()
     
@@ -2451,6 +2261,540 @@ local function MainLoop()
     end
 end
 
+local function startCoverageMonitor()
+    if CoverageCheckConnection then return end
+    
+    CoverageCheckConnection = task.spawn(function()
+        while AutoArrestEnabled do
+            task.wait(COVERAGE_CHECK_INTERVAL)
+            
+            if IsExecutingSpawnPath then continue end
+            
+            local root = getHRP()
+            local hum = getHumanoid()
+            if not root or not hum or hum.Health <= 0 then
+                -- Reset state on death detection
+                SelfCoveredStartTime = nil
+                TargetCoveredStartTime = nil
+                ActionInProgress = false
+                CurrentVehicle = nil
+                ExitedCarRef = nil
+                continue
+            end
+            
+            if amICovered() then
+                if not SelfCoveredStartTime then
+                    SelfCoveredStartTime = tick()
+                end
+                
+                local coveredDuration = tick() - SelfCoveredStartTime
+                
+                local spawnPath = findSpawnPath()
+                if spawnPath then
+                    executeSpawnPath(spawnPath)
+                    task.wait(1)
+                    SelfCoveredStartTime = nil
+                elseif coveredDuration >= MAX_COVERED_TIME then
+                    if not canEscapeCover() then
+                        killSelf()
+                        SelfCoveredStartTime = nil
+                    end
+                end
+            else
+                SelfCoveredStartTime = nil
+            end
+        end
+    end)
+end
+
+local function arrestSequence(target)
+    ActionInProgress = true
+    if ExitedCarRef and not CurrentVehicle and ExitedCarRef.PrimaryPart and ExitedCarRef.PrimaryPart.Parent then
+        CurrentVehicle = ExitedCarRef
+        print("Re-using last vehicle for chase.")
+    end
+    
+    local targetName = target.Name
+    local root = getHRP()
+    local hum = getHumanoid()
+    
+    -- Check if we died during setup
+    if not root or not hum or hum.Health <= 0 then
+        ActionInProgress = false
+        CurrentVehicle = nil
+        ExitedCarRef = nil
+        return false
+    end
+
+    local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not tRoot then
+        ActionInProgress = false
+        return false
+    end
+    
+    local tStart = tick()
+    local ejectKey = KeyMap[VEHICLE_EJECT_STABLE_KEY]
+    local arrestKey = KeyMap[ARREST_STABLE_KEY]
+    local folder = LocalPlayer:FindFirstChild("Folder")
+
+    -- Initial cover check (existing logic)
+    if amICovered() then
+        local spawnPath = findSpawnPath()
+        if spawnPath then
+            executeSpawnPath(spawnPath)
+            task.wait(1)
+        elseif not canEscapeCover() then
+            killSelf()
+            ActionInProgress = false
+            return false
+        end
+    end
+
+    if CurrentVehicle and CurrentVehicle.PrimaryPart then
+        safeVerticalTeleport(v3new(CurrentVehicle.PrimaryPart.Position.X, HOVER_HEIGHT, CurrentVehicle.PrimaryPart.Position.Z))
+    end
+    task.wait(0.1)
+
+    local lastCoverageCheck = tick()
+    
+    -- Vehicle Chase Loop 1 (High-altitude approach)
+    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
+        -- Death check during chase
+        hum = getHumanoid()
+        root = getHRP()
+        if not hum or not root or hum.Health <= 0 then
+            ActionInProgress = false
+            CurrentVehicle = nil
+            ExitedCarRef = nil
+            return false
+        end
+        
+        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not tRoot or not tRoot.Parent then break end
+        if not hasPlayerEscaped(target) then break end
+        
+        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
+            lastCoverageCheck = tick()
+            if isCovered(tRoot.Position, target) then break end
+        end
+        
+        local currentTargetPos = tRoot.Position
+        local prim = CurrentVehicle.PrimaryPart
+        root = getHRP()
+        if not root or not prim or not prim.Parent then break end
+        
+        local aboveTarget = v3new(currentTargetPos.X, HOVER_HEIGHT, currentTargetPos.Z)
+        flyTowards3D(aboveTarget, FLY_SPEED_CAR, prim)
+        
+        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
+        
+        if horizontalDist < 15 then
+            killVelocity(prim)
+            break
+        end
+        
+        if (tick() - tStart) > 30 then break end
+        task.wait()
+    end
+
+    tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if tRoot and isCovered(tRoot.Position, target) then
+        ActionInProgress = false
+        return false
+    end
+
+    local ramSuccess = false
+    -- Vehicle Chase Loop 2 (Close-range approach / Ramming)
+    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
+        -- Death check during ramming
+        hum = getHumanoid()
+        root = getHRP()
+        if not hum or not root or hum.Health <= 0 then
+            ActionInProgress = false
+            CurrentVehicle = nil
+            ExitedCarRef = nil
+            return false
+        end
+        
+        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not tRoot or not tRoot.Parent then break end
+        if not hasPlayerEscaped(target) then break end
+
+        
+        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
+            lastCoverageCheck = tick()
+            if isCovered(tRoot.Position, target) then break end
+        end
+        
+        local currentTargetPos = tRoot.Position
+        local prim = CurrentVehicle.PrimaryPart
+        root = getHRP()
+        if not root or not prim or not prim.Parent then break end
+        
+        local targetHeight = currentTargetPos.Y + DROP_OFFSET_STUDS
+        local goalPos = v3new(currentTargetPos.X, targetHeight, currentTargetPos.Z)
+        
+        flyTowards3D(goalPos, FLY_SPEED_CAR, prim)
+        
+        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
+        local verticalDist = math.abs(prim.Position.Y - targetHeight)
+        
+        -- **(FIX: Only ram if both horizontal and vertical proximity are met)**
+        if horizontalDist < 50 and verticalDist < 15 then 
+            if ramTargetVehicle(target) then
+                print("Ramming successful. Moving to foot chase.")
+                ramSuccess = true
+                break
+            end
+        end
+        
+        if horizontalDist < 15 and verticalDist < 15 then
+            killVelocity(prim)
+            break
+        end
+        
+        if (tick() - tStart) > 40 then break end
+        task.wait()
+    end
+
+    if CurrentVehicle and CurrentVehicle.PrimaryPart then
+        killVelocity(CurrentVehicle.PrimaryPart)
+    end
+    
+    -- Save the vehicle reference for the next attempt (Requirement 3)
+    if CurrentVehicle then
+        ExitedCarRef = CurrentVehicle
+    end
+
+    exitVehicleRoutine()
+    task.wait(0.3)
+    
+    local shootTask = nil
+    local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
+    if tHum and tHum.Sit and not ramSuccess then
+        print("Target is still in vehicle. Starting concurrent fly/shoot...")
+        
+        -- Start shooting in a separate thread
+        shootTask = task.spawn(function()
+            shootTargetVehicle(target)
+        end)
+        
+        task.wait(0.2)
+    end
+
+    local tChar = target.Character
+    tHum = tChar and tChar:FindFirstChild("Humanoid")
+    local targetVehicleToEject = tHum and tHum.SeatPart and tHum.SeatPart.Parent
+
+    if targetVehicleToEject and ejectKey then
+        for i = 1, 5 do
+            local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
+            if not (tHumCheck and tHumCheck.Sit) then break end
+            
+            if folder and folder:FindFirstChild("Handcuffs") then
+                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
+            end
+            Remote:FireServer(ejectKey, targetVehicleToEject)
+            task.wait(0.08)
+        end
+    end
+    
+    task.wait(0.1)
+    
+    if folder and folder:FindFirstChild("Handcuffs") then
+        folder.Handcuffs.InventoryEquipRemote:FireServer(true)
+        task.wait(0.1)
+    end
+    
+    
+    local targetPath = {}
+    local pathRecordTime = tick()
+    local PATH_RECORD_INTERVAL = 0.05
+    local PATH_FOLLOW_OFFSET = 0.01 
+    
+    local chaseStartTime = tick()
+    local CHASE_TIMEOUT = 10
+    local success = false
+    root = getHRP()
+    if root then
+        safeVerticalTeleport(v3new(root.Position.X, root.Position.Y + MIN_HEIGHT_ABOVE_GROUND, root.Position.Z))
+    end
+    
+    -- Foot Chase / Flying Loop
+    while true do
+        -- Death check during foot chase
+        hum = getHumanoid()
+        root = getHRP()
+        if not hum or not root or hum.Health <= 0 then
+            ActionInProgress = false
+            CurrentVehicle = nil
+            ExitedCarRef = nil
+            killVelocity(root)
+            
+            if shootTask then
+                task.cancel(shootTask)
+            end
+            
+            local folder = LocalPlayer:FindFirstChild("Folder")
+            if folder and folder:FindFirstChild("Handcuffs") then
+                folder.Handcuffs.InventoryEquipRemote:FireServer(false)
+            end
+            local pistol = folder and folder:FindFirstChild("Pistol")
+            if pistol and pistol:GetAttribute("Equipped") then
+                pistol.InventoryEquipRemote:FireServer(false)
+            end
+            
+            return false
+        end
+        
+        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not tRoot or not tRoot.Parent then break end
+        if not hasPlayerEscaped(target) then
+            success = true
+            break
+        end
+        if (tick() - chaseStartTime) > CHASE_TIMEOUT then break end
+
+        -- **(Requirement 4: Constant Cover Check)**
+        root = getHRP()
+        if not root then break end
+        -- End of Requirement 4 integration
+        
+        if (tick() - pathRecordTime) >= PATH_RECORD_INTERVAL then
+            table.insert(targetPath, {
+                Position = tRoot.Position,
+                Time = tick()
+            })
+            pathRecordTime = tick()
+        end
+        
+        local tPos = tRoot.Position
+        
+        local dist = (root.Position - tPos).Magnitude
+        local chaseTarget = nil
+        
+        local followTime = tick() - PATH_FOLLOW_OFFSET
+        local bestFollowPos = nil
+        
+        while targetPath[1] and targetPath[1].Time < (followTime - 4.5) do
+            table.remove(targetPath, 1)
+        end
+
+        for i = 1, #targetPath do
+            if targetPath[i].Time >= followTime then
+                bestFollowPos = targetPath[math.max(1, i-1)].Position
+                break
+            elseif i == #targetPath then
+                bestFollowPos = targetPath[i].Position
+            end
+        end
+        
+        if bestFollowPos then
+            chaseTarget = v3new(bestFollowPos.X, bestFollowPos.Y + 3, bestFollowPos.Z)
+        else
+            chaseTarget = v3new(tPos.X, tPos.Y + 3, tPos.Z)
+        end
+        
+        flyTowards3D(chaseTarget, FLY_SPEED_FOOT, root)
+        
+        if dist < 25 and arrestKey then
+            if folder and folder:FindFirstChild("Handcuffs") then
+                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
+            end
+            Remote:FireServer(arrestKey, targetName)
+            Remote:FireServer(arrestKey, targetName)
+            Remote:FireServer(arrestKey, targetName)
+        end
+        
+        local currentTargetVehicle = getClosestVehicleToPlayer(target)
+        if currentTargetVehicle and ejectKey then
+            Remote:FireServer(ejectKey, currentTargetVehicle)
+        end
+        
+        task.wait()
+    end
+    
+    killVelocity(getHRP())
+    
+    -- Cleanup concurrent shoot task if it's running
+    if shootTask then
+        task.cancel(shootTask)
+    end
+    
+    -- Final cleanup of equipped items
+    if folder and folder:FindFirstChild("Handcuffs") then
+        folder.Handcuffs.InventoryEquipRemote:FireServer(false)
+    end
+    local pistol = folder:FindFirstChild("Pistol")
+    if pistol and pistol:GetAttribute("Equipped") then
+        pistol.InventoryEquipRemote:FireServer(false)
+    end
+    
+    if success then
+        ArrestRetryCount = 0
+    else
+        ArrestRetryCount = ArrestRetryCount + 1
+    end
+    
+    root = getHRP()
+    if root then
+        if amICovered() then
+            local spawnPath = findSpawnPath()
+            if spawnPath then
+                executeSpawnPath(spawnPath)
+                task.wait(1)
+            elseif not canEscapeCover() then
+                killSelf()
+                ActionInProgress = false
+                return success
+            end
+        end
+        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+    end
+    
+    ActionInProgress = false
+    return success
+end
+
+
+local function startCoverageMonitor()
+    if CoverageCheckConnection then return end
+    
+    CoverageCheckConnection = task.spawn(function()
+        while AutoArrestEnabled do
+            task.wait(COVERAGE_CHECK_INTERVAL)
+            
+            if IsExecutingSpawnPath then continue end
+            
+            local root = getHRP()
+            local hum = getHumanoid()
+            if not root or not hum or hum.Health <= 0 then
+                -- Reset state on death detection
+                SelfCoveredStartTime = nil
+                TargetCoveredStartTime = nil
+                ActionInProgress = false
+                CurrentVehicle = nil
+                ExitedCarRef = nil
+                continue
+            end
+            
+            if amICovered() then
+                if not SelfCoveredStartTime then
+                    SelfCoveredStartTime = tick()
+                end
+                
+                local coveredDuration = tick() - SelfCoveredStartTime
+                
+                local spawnPath = findSpawnPath()
+                if spawnPath then
+                    executeSpawnPath(spawnPath)
+                    task.wait(1)
+                    SelfCoveredStartTime = nil
+                elseif coveredDuration >= MAX_COVERED_TIME then
+                    if not canEscapeCover() then
+                        killSelf()
+                        SelfCoveredStartTime = nil
+                    end
+                end
+            else
+                SelfCoveredStartTime = nil
+            end
+        end
+    end)
+end
+
+
+local function stopCoverageMonitor()
+    CoverageCheckConnection = nil
+    SelfCoveredStartTime = nil
+    TargetCoveredStartTime = nil
+end
+
+local function MainLoop()
+    if ActionInProgress then return end
+    if IsExecutingSpawnPath then return end
+    
+    local hum = getHumanoid()
+    local root = getHRP()
+    
+    if not root or not hum or hum.Health <= 0 then
+        -- Reset all state on death
+        ActionInProgress = false
+        CurrentVehicle = nil
+        ExitedCarRef = nil
+        VehicleRetryCount = 0
+        ArrestRetryCount = 0
+        StuckCheckPosition = nil
+        TargetPositionHistory = {}
+        SelfCoveredStartTime = nil
+        TargetCoveredStartTime = nil
+        return
+    end
+    
+    cleanupState()
+    
+    if amICovered() then
+        local spawnPath = findSpawnPath()
+        if spawnPath then
+            executeSpawnPath(spawnPath)
+            task.wait(1)
+            return
+        elseif not canEscapeCover() then
+            killSelf()
+            return
+        end
+    end
+    
+    if VehicleRetryCount >= MAX_VEHICLE_RETRIES then
+        task.wait(RETRY_COOLDOWN)
+        VehicleRetryCount = 0
+        return
+    end
+    
+    if ArrestRetryCount >= MAX_ARREST_RETRIES then
+        task.wait(RETRY_COOLDOWN)
+        ArrestRetryCount = 0
+        return
+    end
+    
+    if not hum.Sit and not CurrentVehicle then
+        local veh = getClosestVehicle()
+        if veh then
+            local success = enterVehicleRoutine(veh)
+            if not success then
+                VehicleRetryCount = VehicleRetryCount + 1
+                task.wait(RETRY_COOLDOWN)
+            end
+        else
+            if root.Position.Y < HOVER_HEIGHT then
+                safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+            end
+        end
+        return
+    end
+    
+    if hum.Sit or CurrentVehicle then
+        local target = getBestTarget()
+        if target then
+            local success = arrestSequence(target)
+            if not success then
+                ArrestRetryCount = ArrestRetryCount + 1
+                task.wait(0.1)
+            end
+        else
+            local patrol = v3new(-1140, HOVER_HEIGHT, -1500)
+            root = getHRP()
+            if root then
+                local distPatrol = (root.Position - patrol).Magnitude
+                flyToLocation(patrol, true)
+                local TeleportService = game:GetService("TeleportService")
+                queue_on_teleport(loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))())
+                TeleportService:Teleport(game.PlaceId, Player)
+            end
+        end
+    end
+end
+
 
 local function ToggleAutoArrest()
     AutoArrestEnabled = not AutoArrestEnabled
@@ -2514,7 +2858,10 @@ end)
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
-Tab:Toggle("Toggle Arrest","Toggle",false,function(Value)
+Tab:Toggle("Toggle Arrest","Toggle",true,function(Value)
+    local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
+    if key then Remote:FireServer(key) end
+    task.wait(5)
     ToggleAutoArrest()
 end)
 
