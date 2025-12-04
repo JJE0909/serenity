@@ -2855,13 +2855,12 @@ task.spawn(function()
     end
 end)
 
+
+
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
 Tab:Toggle("Toggle Arrest","Toggle",true,function(Value)
-    local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
-    if key then Remote:FireServer(key) end
-    task.wait(5)
     ToggleAutoArrest()
 end)
 
@@ -2885,3 +2884,6 @@ end)
 SettingsTab:KeyBind("Toggle UI","RightShift",function(Value)
     ToggleUI()
 end)
+
+local key = KeyMap[JOIN_TEAM_STABLE_KEY]
+if key then Remote:FireServer(key, "Police") end
