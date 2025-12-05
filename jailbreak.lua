@@ -2445,36 +2445,38 @@ local function arrestSequence(target)
     local shootTask = nil
     local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
     if tHum and tHum.Sit then
-        print("Target is still in vehicle. Starting concurrent fly/shoot...")
         
         shootTask = task.spawn(function()
             while true do
-                local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
-                if not tHum or not tHum.Sit then
-                    print("Target exited vehicle, stopping shoot task")
+                local tChar = target.Character
+                local tHum  = tChar and tChar:FindFirstChild("Humanoid")
+
+                if not tHum then
                     break
                 end
-                targetVehicle = getClosestVehicleToPlayer(target)
 
+                local seat = tHum.SeatPart
+                if not seat or not seat.Parent then
+                    break
+                end
+
+                local targetVehicle = seat.Parent or getClosestVehicleToPlayer(target)
                 if targetVehicle then
                     local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
-                    local needsShooting = false
-
-                    if tireHealth and tireHealth > 0 then
-                        needsShooting = true
-                    end
+                    local needsShooting = (tireHealth == nil) or (tireHealth > 0)
 
                     if needsShooting then
-                        print("Target vehicle tires regenerating, shooting again...")
                         shootTargetVehicle(target)
+                        task.wait(0.2)
                     else
                         task.wait(0.5)
                     end
                 else
-                    break
+                    task.wait(0.1)
                 end
             end
         end)
+
 
         
         task.wait(0.2)
