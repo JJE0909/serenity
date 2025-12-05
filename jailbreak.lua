@@ -1437,7 +1437,7 @@ local function amICovered()
     raycastParams.FilterDescendantsInstances = partsToExclude
     raycastParams.IgnoreWater = true
     
-    local startPosition = root.Position + Vector3.new(0, 5, 0)
+    local startPosition = root.Position 
     local ray = Workspace:Raycast(startPosition, Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0), raycastParams)
     
     return ray ~= nil
@@ -2043,7 +2043,7 @@ local function ramTargetVehicle(target)
     local myPart = myVehicle.PrimaryPart
     
     local ramStartTime = tick()
-    local RAM_DURATION = 1.5
+    local RAM_DURATION = 0.5
     local RAM_SPEED = 300
     
     while (tick() - ramStartTime) < RAM_DURATION do
@@ -2424,7 +2424,6 @@ local function arrestSequence(target)
         
         if horizontalDist < 50 and verticalDist < 15 then 
             if ramTargetVehicle(target) then
-                print("Ramming successful. Moving to foot chase.")
                 ramSuccess = true
                 break
             end
@@ -2452,11 +2451,40 @@ local function arrestSequence(target)
     
     local shootTask = nil
     local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
-    if tHum and tHum.Sit and not ramSuccess then
+    if tHum and tHum.Sit then
         print("Target is still in vehicle. Starting concurrent fly/shoot...")
         
         shootTask = task.spawn(function()
-            shootTargetVehicle(target)
+            while true do
+                local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
+                if not tHumCheck or not tHumCheck.Sit then 
+                    print("Target exited vehicle, stopping shoot task")
+                    break 
+                end
+                
+                local targetVeh = tHumCheck.SeatPart and tHumCheck.SeatPart.Parent
+                if targetVeh then
+                    local needsShooting = false
+                    for _, part in ipairs(targetVeh:GetDescendants()) do
+                        if part.Name == "Tire" and part:IsA("BasePart") then
+                            local health = part:GetAttribute("Health") or 100
+                            if health > 10 then
+                                needsShooting = true
+                                break
+                            end
+                        end
+                    end
+                    
+                    if needsShooting then
+                        print("Target vehicle tires regenerating, shooting again...")
+                        shootTargetVehicle(target)
+                    else
+                        task.wait(0.5)
+                    end
+                else
+                    break
+                end
+            end
         end)
         
         task.wait(0.2)
@@ -2753,21 +2781,35 @@ local function MainLoop()
                 ArrestRetryCount = ArrestRetryCount + 1
                 task.wait(0.1)
             end
-        else
-            local patrol = v3new(-1140, HOVER_HEIGHT, -1500)
-            root = getHRP()
-            if root then
-                local distPatrol = (root.Position - patrol).Magnitude
-                flyToLocation(patrol, true)
-                local TeleportService = game:GetService("TeleportService")
-                queue_on_teleport([[
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
-                ]])
-                wait(5)
-                TeleportService:Teleport(game.PlaceId, Player)
 
+        else
+            -- no target found, wait 10 seconds and check again
+            task.wait(10)
+
+            -- refresh target after waiting
+            target = findTarget and findTarget() or target   -- replace with your target-finding function
+
+            if not target then
+                -- still no target → teleport
+                local patrol = v3new(-1140, HOVER_HEIGHT, -1500)
+                root = getHRP()
+
+                if root then
+                    local distPatrol = (root.Position - patrol).Magnitude
+                    flyToLocation(patrol, true)
+
+                    queue_on_teleport([[
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
+                    ]])
+
+                    task.wait(5)
+
+                    local TeleportService = game:GetService("TeleportService")
+                    TeleportService:Teleport(game.PlaceId, Player)
+                end
             end
         end
+
     end
 end
 
