@@ -1218,50 +1218,52 @@ local ALLOWED_VEHICLES = {
 }
 
 local SPAWN_PATHS = {
-    [Vector3.new(765, 22, -3345)] = {
-        Vector3.new(764, 22, -3341),
-        Vector3.new(777, 22, -3336),
-        Vector3.new(782, 23, -3348),
-        Vector3.new(810, 25, -3336),
+    [Vector3.new(-1189, 19, -1581)] = {
+        Vector3.new(-1173, 20, -1581),
+        Vector3.new(-1171, 21, -1627),
     },
-
-    [Vector3.new(742, 40, 1132)] = {
-        Vector3.new(738, 40, 1134),
-        Vector3.new(728, 40, 1109),
-        Vector3.new(734, 42, 1106),
-        Vector3.new(715, 44, 1058),
+    [Vector3.new(-1169, 19, -1583)] = {
+        Vector3.new(-1173, 19, -1584),
+        Vector3.new(-1171, 21, -1627), 
     },
-
-    [Vector3.new(-1187, 20, -1581)] = {
-        Vector3.new(-1174, 21, -1581),
-        Vector3.new(-1173, 23, -1620),
+    [Vector3.new(-1177, 19, -1579)] = {
+        Vector3.new(-1173, 20, -1581),
+        Vector3.new(-1171, 21, -1627), 
     },
-
-    [Vector3.new(-1143, 20, -1572)] = {
-        Vector3.new(-1174, 21, -1581),
-        Vector3.new(-1173, 23, -1620),
+    [Vector3.new(-1165, 19, -1580)] = {
+        Vector3.new(-1173, 20, -1581),
+        Vector3.new(-1171, 21, -1627), 
     },
-
-    [Vector3.new(-1123, 20, -1589)] = {
-        Vector3.new(-1127, 20, -1585),
-        Vector3.new(-1173, 21, -1584),
-        Vector3.new(-1173, 23, -1620),
-    },
-
-    [Vector3.new(-1175, 19, -1583)] = {
-        Vector3.new(-1173, 21, -1584),
-        Vector3.new(-1173, 23, -1620),
-    },
-
-    [Vector3.new(-1164, 19, -1580)] = {
-        Vector3.new(-1173, 21, -1584),
-        Vector3.new(-1173, 23, -1620),
-    },
-
-    [Vector3.new(-1176, 40, -1582)] = {
+    [Vector3.new(-1173, 39, -1582)] = {
         Vector3.new(-1159, 40, -1581),
-        Vector3.new(-1160, 41, -1566),
-        Vector3.new(-1122, 43, -1566),
+        Vector3.new(-1154, 40, -1566), 
+        Vector3.new(-1130, 41, -1566), 
+    },
+    [Vector3.new(-1121, 19, -1586)] = {
+        Vector3.new(-1173, 20, -1587),
+        Vector3.new(-1171, 21, -1627), 
+    },
+    [Vector3.new(-1263, 19, -1549)] = {
+        Vector3.new(-1263, 20, -1537),
+    },
+    [Vector3.new(-1145, 19, -1572)] = {
+        Vector3.new(-1173, 20, -1573),
+        Vector3.new(-1171, 21, -1627),
+    },
+    [Vector3.new(764, 20, -3346)] = {
+        Vector3.new(763, 21, -3341),
+        Vector3.new(780, 21, -3340), 
+        Vector3.new(782, 21, -3348), 
+        Vector3.new(807, 22, -3337), 
+    },
+    [Vector3.new(742, 39, 1133)] = {
+        Vector3.new(739, 40, 1134),
+        Vector3.new(733, 40, 1106),
+        Vector3.new(720, 41, 1067),
+    },
+    [Vector3.new(783, 20, -3351)] = {
+        Vector3.new(782, 20, -3348),
+        Vector3.new(805, 20, -3338),
     },
 }
 
