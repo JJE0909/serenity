@@ -1417,8 +1417,6 @@ local function isCovered(position, targetPlayer)
     return ray ~= nil
 end
 
--- NOTE: This function relies on global variables CurrentVehicle and ExitedCarRef
--- and requires HOVER_RAYCAST_HEIGHT to be defined elsewhere.
 
 local function amICovered()
     local root = getHRP()
@@ -2015,16 +2013,13 @@ local function resetSilentAim()
 end
 
 local function getVehicleBackPosition(targetVehicle, targetRoot)
-    -- This function determines the position 8 studs behind the target vehicle's primary part.
     if not targetVehicle or not targetVehicle.PrimaryPart then return nil end
     if not targetRoot then return nil end
     
     local vehiclePart = targetVehicle.PrimaryPart
     local vehicleCFrame = vehiclePart.CFrame
     
-    -- The LookVector is the direction the vehicle is traveling/facing.
     local lookVector = vehicleCFrame.LookVector
-    -- Back offset is the negative of the look vector.
     local backOffset = -lookVector * 8
     
     local backPosition = vehiclePart.Position + backOffset
@@ -2038,7 +2033,6 @@ local function ramTargetVehicle(target)
     local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not tRoot then return false end
     
-    -- Assuming getClosestVehicleToPlayer is defined elsewhere
     local targetVehicle = getClosestVehicleToPlayer(target)
     if not targetVehicle or not targetVehicle.PrimaryPart then return false end
     
@@ -2069,16 +2063,12 @@ local function ramTargetVehicle(target)
         
         myPart = myVehicle.PrimaryPart
         
-        -- The position we are ramming towards (slightly into the target's back)
         local pushInOffset = targetLookVector * -3
         local targetRamPos = backPos + pushInOffset
         
-        -- FIX: Removed the * CFrame.Angles(0, math.rad(180), 0) flip.
-        -- This ensures the front (Z-axis) of your vehicle faces the target's rear (backPos).
         local targetCFrame = CFrame.lookAt(myPart.Position, backPos)
         myVehicle:SetPrimaryPartCFrame(targetCFrame)
         
-        -- Apply aggressive velocity towards the target ram position
         local direction = (targetRamPos - myPart.Position).Unit
         myPart.AssemblyLinearVelocity = direction * RAM_SPEED
         
@@ -2086,7 +2076,6 @@ local function ramTargetVehicle(target)
     end
     
     if myVehicle and myVehicle.PrimaryPart then
-        -- Stop the vehicle movement after the ramming period
         killVelocity(myVehicle.PrimaryPart)
     end
     
@@ -2181,7 +2170,6 @@ local function MainLoop()
     local root = getHRP()
     
     if not root or not hum or hum.Health <= 0 then
-        -- Reset all state on death
         ActionInProgress = false
         CurrentVehicle = nil
         ExitedCarRef = nil
@@ -2275,7 +2263,6 @@ local function startCoverageMonitor()
             local root = getHRP()
             local hum = getHumanoid()
             if not root or not hum or hum.Health <= 0 then
-                -- Reset state on death detection
                 SelfCoveredStartTime = nil
                 TargetCoveredStartTime = nil
                 ActionInProgress = false
@@ -2320,7 +2307,6 @@ local function arrestSequence(target)
     local root = getHRP()
     local hum = getHumanoid()
     
-    -- Check if we died during setup
     if not root or not hum or hum.Health <= 0 then
         ActionInProgress = false
         CurrentVehicle = nil
@@ -2339,7 +2325,6 @@ local function arrestSequence(target)
     local arrestKey = KeyMap[ARREST_STABLE_KEY]
     local folder = LocalPlayer:FindFirstChild("Folder")
 
-    -- Initial cover check (existing logic)
     if amICovered() then
         local spawnPath = findSpawnPath()
         if spawnPath then
@@ -2359,9 +2344,7 @@ local function arrestSequence(target)
 
     local lastCoverageCheck = tick()
     
-    -- Vehicle Chase Loop 1 (High-altitude approach)
     while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        -- Death check during chase
         hum = getHumanoid()
         root = getHRP()
         if not hum or not root or hum.Health <= 0 then
@@ -2406,9 +2389,7 @@ local function arrestSequence(target)
     end
 
     local ramSuccess = false
-    -- Vehicle Chase Loop 2 (Close-range approach / Ramming)
     while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        -- Death check during ramming
         hum = getHumanoid()
         root = getHRP()
         if not hum or not root or hum.Health <= 0 then
@@ -2441,7 +2422,6 @@ local function arrestSequence(target)
         local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
         local verticalDist = math.abs(prim.Position.Y - targetHeight)
         
-        -- **(FIX: Only ram if both horizontal and vertical proximity are met)**
         if horizontalDist < 50 and verticalDist < 15 then 
             if ramTargetVehicle(target) then
                 print("Ramming successful. Moving to foot chase.")
@@ -2463,7 +2443,6 @@ local function arrestSequence(target)
         killVelocity(CurrentVehicle.PrimaryPart)
     end
     
-    -- Save the vehicle reference for the next attempt (Requirement 3)
     if CurrentVehicle then
         ExitedCarRef = CurrentVehicle
     end
@@ -2476,7 +2455,6 @@ local function arrestSequence(target)
     if tHum and tHum.Sit and not ramSuccess then
         print("Target is still in vehicle. Starting concurrent fly/shoot...")
         
-        -- Start shooting in a separate thread
         shootTask = task.spawn(function()
             shootTargetVehicle(target)
         end)
@@ -2522,9 +2500,7 @@ local function arrestSequence(target)
         safeVerticalTeleport(v3new(root.Position.X, root.Position.Y + MIN_HEIGHT_ABOVE_GROUND, root.Position.Z))
     end
     
-    -- Foot Chase / Flying Loop
     while true do
-        -- Death check during foot chase
         hum = getHumanoid()
         root = getHRP()
         if not hum or not root or hum.Health <= 0 then
@@ -2557,10 +2533,8 @@ local function arrestSequence(target)
         end
         if (tick() - chaseStartTime) > CHASE_TIMEOUT then break end
 
-        -- **(Requirement 4: Constant Cover Check)**
         root = getHRP()
         if not root then break end
-        -- End of Requirement 4 integration
         
         if (tick() - pathRecordTime) >= PATH_RECORD_INTERVAL then
             table.insert(targetPath, {
@@ -2618,12 +2592,10 @@ local function arrestSequence(target)
     
     killVelocity(getHRP())
     
-    -- Cleanup concurrent shoot task if it's running
     if shootTask then
         task.cancel(shootTask)
     end
     
-    -- Final cleanup of equipped items
     if folder and folder:FindFirstChild("Handcuffs") then
         folder.Handcuffs.InventoryEquipRemote:FireServer(false)
     end
@@ -2671,7 +2643,6 @@ local function startCoverageMonitor()
             local root = getHRP()
             local hum = getHumanoid()
             if not root or not hum or hum.Health <= 0 then
-                -- Reset state on death detection
                 SelfCoveredStartTime = nil
                 TargetCoveredStartTime = nil
                 ActionInProgress = false
@@ -2720,7 +2691,6 @@ local function MainLoop()
     local root = getHRP()
     
     if not root or not hum or hum.Health <= 0 then
-        -- Reset all state on death
         ActionInProgress = false
         CurrentVehicle = nil
         ExitedCarRef = nil
@@ -2793,6 +2763,7 @@ local function MainLoop()
                 queue_on_teleport([[
                     loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
                 ]])
+                wait(5)
                 TeleportService:Teleport(game.PlaceId, Player)
 
             end
