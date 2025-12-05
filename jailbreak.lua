@@ -1437,7 +1437,7 @@ local function amICovered()
     raycastParams.FilterDescendantsInstances = partsToExclude
     raycastParams.IgnoreWater = true
     
-    local startPosition = root.Position 
+    local startPosition = root.Position + Vector3.new(0, 2, 0)
     local ray = Workspace:Raycast(startPosition, Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0), raycastParams)
     
     return ray ~= nil
@@ -2114,14 +2114,8 @@ local function shootTargetVehicle(target)
     local MAX_SHOOT_TIME = 10
     
     while (tick() - shootStartTime) < MAX_SHOOT_TIME do
-        vehiclePart = getTargetVehiclePart(target)
-        if not vehiclePart then break end
-        
-        targetVehicle = vehiclePart.Parent
-        if not targetVehicle then break end
-        
-        shootTarget = vehiclePart
-        
+        local targetVehicle = getClosestVehicleToPlayer(target)
+
         local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
         if not tireHealth or tireHealth <= 0 then
             break
@@ -2300,7 +2294,6 @@ local function arrestSequence(target)
     ActionInProgress = true
     if ExitedCarRef and not CurrentVehicle and ExitedCarRef.PrimaryPart and ExitedCarRef.PrimaryPart.Parent then
         CurrentVehicle = ExitedCarRef
-        print("Re-using last vehicle for chase.")
     end
     
     local targetName = target.Name
@@ -2330,7 +2323,7 @@ local function arrestSequence(target)
         if spawnPath then
             executeSpawnPath(spawnPath)
             task.wait(1)
-        elseif not canEscapeCover() then
+        else
             killSelf()
             ActionInProgress = false
             return false
@@ -2456,25 +2449,21 @@ local function arrestSequence(target)
         
         shootTask = task.spawn(function()
             while true do
-                local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
-                if not tHumCheck or not tHumCheck.Sit then 
+                local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
+                if not tHum or not tHum.Sit then
                     print("Target exited vehicle, stopping shoot task")
-                    break 
+                    break
                 end
-                
-                local targetVeh = tHumCheck.SeatPart and tHumCheck.SeatPart.Parent
-                if targetVeh then
+                targetVehicle = getClosestVehicleToPlayer(target)
+
+                if targetVehicle then
+                    local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
                     local needsShooting = false
-                    for _, part in ipairs(targetVeh:GetDescendants()) do
-                        if part.Name == "Tire" and part:IsA("BasePart") then
-                            local health = part:GetAttribute("Health") or 100
-                            if health > 10 then
-                                needsShooting = true
-                                break
-                            end
-                        end
+
+                    if tireHealth and tireHealth > 0 then
+                        needsShooting = true
                     end
-                    
+
                     if needsShooting then
                         print("Target vehicle tires regenerating, shooting again...")
                         shootTargetVehicle(target)
@@ -2486,6 +2475,7 @@ local function arrestSequence(target)
                 end
             end
         end)
+
         
         task.wait(0.2)
     end
