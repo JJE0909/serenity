@@ -3407,22 +3407,14 @@ local function toggleAutoArrest()
     end
 end
 
-
-task.spawn(function()
-    while task.wait(1) do
-        pcall(function()
-            for _, v in getgc(false) do
-                if typeof(v) == "function" and islclosure(v) and debug.info(v, "n") == "EventFireServer" then
-                    local ups = debug.getupvalues(v)
-                    if ups[3] and ups[3]["y62bk0nz"] then
-                        ups[3]["y62bk0nz"] = nil
-                    end
-                end
-            end
-        end)
+for _, func in pairs(getgc()) do
+    if typeof(func) == 'function' and islclosure(func) then
+        if getinfo(func).name == 'CheatCheck' then
+            func = function() return end
+            break
+        end
     end
-end)
-
+end
 
 
 local function Boot()
@@ -3693,3 +3685,14 @@ Serenity.SaveConfig = writeConfig
 Serenity.LoadConfig = loadConfigFromFile
 
 return Serenity
+
+
+
+for _, func in pairs(getgc()) do
+    if typeof(func) == 'function' and islclosure(func) then
+        if getinfo(func).name == 'CheatCheck' then
+            func = function() return end
+            break
+        end
+    end
+end
