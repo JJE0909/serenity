@@ -467,18 +467,22 @@ function library:Create(title)
 
         function TabHolderObject:Toggle(name, flag, val, callback)
             callback = callback or function() end
-            val = val or false
-            assert(name, "Name Missing")
-            assert(flag, "Flag Missing")
-            library.flags[flag] = val
+            assert(type(name) == "string", "Toggle name must be a string")
+            assert(type(flag) == "string", "Toggle flag must be a string")
+
+            -- Do NOT force‑override any pre‑loaded config here.
+            -- Just ensure there is *some* value.
+            if library.flags[flag] == nil then
+                library.flags[flag] = val or false
+            end
 
             local ToggleFrame = Instance.new("Frame")
             local ToggleBtn = Instance.new("TextButton")
-            local ToggleBtnC = Instance.new("UICorner")
-            local ToggleDisable = Instance.new("Frame")
+            local ToggleC = Instance.new("UICorner")
             local ToggleSwitch = Instance.new("Frame")
             local ToggleSwitchC = Instance.new("UICorner")
-            local ToggleDisableC = Instance.new("UICorner")
+            local ToggleSwitchBtn = Instance.new("Frame")
+            local ToggleSwitchBtnC = Instance.new("UICorner")
 
             ToggleFrame.Name = "ToggleFrame"
             ToggleFrame.Parent = Section
@@ -487,10 +491,11 @@ function library:Create(title)
             ToggleFrame.BorderSizePixel = 0
             ToggleFrame.Size = UDim2.new(0, 428, 0, 38)
 
-            ToggleBtn.Name = "ToggleBtn"
+            ToggleBtn.Name = "Toggle"
             ToggleBtn.Parent = ToggleFrame
             ToggleBtn.BackgroundColor3 = theme.main
             ToggleBtn.BorderSizePixel = 0
+            ToggleBtn.ClipsDescendants = true
             ToggleBtn.Size = UDim2.new(0, 428, 0, 38)
             ToggleBtn.AutoButtonColor = false
             ToggleBtn.Font = Enum.Font.GothamMedium
@@ -499,67 +504,85 @@ function library:Create(title)
             ToggleBtn.TextSize = 16
             ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
 
-            ToggleBtnC.CornerRadius = UDim.new(0, 6)
-            ToggleBtnC.Name = "ToggleBtnC"
-            ToggleBtnC.Parent = ToggleBtn
-
-            ToggleDisable.Name = "ToggleDisable"
-            ToggleDisable.Parent = ToggleBtn
-            ToggleDisable.BackgroundColor3 = theme.secondary
-            ToggleDisable.BorderSizePixel = 0
-            ToggleDisable.Position = UDim2.new(0.9019, 0, 0.2089, 0)
-            ToggleDisable.Size = UDim2.new(0, 36, 0, 22)
+            ToggleC.CornerRadius = UDim.new(0, 6)
+            ToggleC.Name = "ToggleC"
+            ToggleC.Parent = ToggleBtn
 
             ToggleSwitch.Name = "ToggleSwitch"
-            ToggleSwitch.Parent = ToggleDisable
-            ToggleSwitch.BackgroundColor3 = theme.accent
-            ToggleSwitch.Size = UDim2.new(0, 24, 0, 22)
+            ToggleSwitch.Parent = ToggleBtn
+            ToggleSwitch.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            ToggleSwitch.BorderSizePixel = 0
+            ToggleSwitch.Position = UDim2.new(0.856, 0, 0.145, 0)
+            ToggleSwitch.Size = UDim2.new(0, 55, 0, 24)
 
-            ToggleSwitchC.CornerRadius = UDim.new(0, 6)
+            ToggleSwitchC.CornerRadius = UDim.new(1, 8)
             ToggleSwitchC.Name = "ToggleSwitchC"
             ToggleSwitchC.Parent = ToggleSwitch
 
-            ToggleDisableC.CornerRadius = UDim.new(0, 6)
-            ToggleDisableC.Name = "ToggleDisableC"
-            ToggleDisableC.Parent = ToggleDisable
+            ToggleSwitchBtn.Name = "ToggleSwitchBtn"
+            ToggleSwitchBtn.Parent = ToggleSwitch
+            ToggleSwitchBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            ToggleSwitchBtn.BorderSizePixel = 0
+            ToggleSwitchBtn.Position = UDim2.new(0, 2, 0, 2)
+            ToggleSwitchBtn.Size = UDim2.new(0, 20, 0, 20)
 
-            local funcs = {
-                SetState = function(_, state)
-                    if state == nil then
-                        state = not library.flags[flag]
-                    end
-                    if library.flags[flag] == state then
-                        return
-                    end
-                    game.TweenService:Create(
-                        ToggleSwitch,
-                        TweenInfo.new(0.2),
-                        {
-                            Position = UDim2.new(
-                                0,
-                                (state and ToggleSwitch.Size.X.Offset / 2 or 0),
-                                0,
-                                0
-                            ),
-                            BackgroundColor3 = (state and theme.accent3 or theme.accent),
-                        }
-                    ):Play()
-                    library.flags[flag] = state
-                    callback(state)
-                end,
-                Module = ToggleFrame,
-            }
+            ToggleSwitchBtnC.CornerRadius = UDim.new(1, 6)
+            ToggleSwitchBtnC.Name = "ToggleSwitchBtnC"
+            ToggleSwitchBtnC.Parent = ToggleSwitchBtn
 
-            if val == true then
-                funcs:SetState(true)
+            local funcs = {}
+
+            function funcs:SetState(state, force)
+                -- nil = toggle current
+                if state == nil then
+                    state = not library.flags[flag]
+                end
+
+                -- allow forcing on init (so default = true actually animates + calls callback)
+                if not force and library.flags[flag] == state then
+                    return
+                end
+
+                game.TweenService:Create(
+                    ToggleSwitchBtn,
+                    TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                    {
+                        Position = state
+                            and UDim2.new(0, 33, 0, 2)
+                            or  UDim2.new(0, 2, 0, 2)
+                    }
+                ):Play()
+
+                game.TweenService:Create(
+                    ToggleSwitch,
+                    TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                    {
+                        BackgroundColor3 = state and theme.accent or Color3.fromRGB(25, 25, 25)
+                    }
+                ):Play()
+
+                library.flags[flag] = state
+                callback(state)
             end
 
             ToggleBtn.MouseButton1Click:Connect(function()
-                funcs:SetState()
+                task.spawn(function()
+                    Ripple(ToggleBtn)
+                end)
+                funcs:SetState(nil) -- toggle
             end)
+
+            -- Initial state: use already‑loaded config if present, otherwise `val`
+            local initial = library.flags[flag]
+            if initial == nil then
+                initial = val or false
+            end
+            -- force = true so we ALWAYS animate & call callback once on startup if true
+            funcs:SetState(initial, true)
 
             return funcs
         end
+
 
         function TabHolderObject:KeyBind(name, default, callback)
             callback = callback or function() end
@@ -1732,34 +1755,50 @@ local function flyToLocation(targetPos, isCar)
 end
 
 
+-- smooth on-foot movement (~100 studs/sec, keeps hover just above ground)
+local FOOT_SPEED        = 100
+local FOOT_LERP_ALPHA   = 0.7
+local FOOT_MAX_VERTICAL = 120
+local FOOT_HOVER_OFFSET = 3   -- keep 3 studs off the ground
+
 local function flySmoothFoot(targetPos, root)
     if not root or not root.Parent then return end
 
-    local currentPos = root.Position
-    local delta      = targetPos - currentPos
-    local dist       = delta.Magnitude
+    -- keep slight lift so we don't get ground-friction slowdown
+    local safeY = getSafeHeight(targetPos)
+    targetPos = Vector3.new(targetPos.X, math.max(targetPos.Y + FOOT_HOVER_OFFSET, safeY + FOOT_HOVER_OFFSET), targetPos.Z)
 
-    if dist < 1 then
-        root.AssemblyLinearVelocity = root.AssemblyLinearVelocity * 0.5
+    local pos  = root.Position
+    local diff = targetPos - pos
+    local dist = diff.Magnitude
+
+    if dist < 0.5 then
+        local v = root.AssemblyLinearVelocity
+        root.AssemblyLinearVelocity = Vector3.new(v.X * 0.5, v.Y * 0.5, v.Z * 0.5)
         return
     end
 
-    local horiz     = Vector3.new(delta.X, 0, delta.Z)
-    local horizDist = horiz.Magnitude
-    local horizDir  = horizDist > 0 and horiz.Unit or Vector3.new(0, 0, 0)
+    local horizDiff = Vector3.new(diff.X, 0, diff.Z)
+    local horizDist = horizDiff.Magnitude
+    if horizDist <= 0 then return end
 
-    -- smooth acceleration based on distance
-    local desiredHorizSpeed   = math.clamp(horizDist * 4, 0, FLY_SPEED_FOOT)
-    local desiredVerticalSpeed= math.clamp(delta.Y * 3, -HOVER_ADJUST_SPEED, HOVER_ADJUST_SPEED)
+    local horizDir     = horizDiff.Unit
+    local currentVel   = root.AssemblyLinearVelocity
+    local currentHoriz = Vector3.new(currentVel.X, 0, currentVel.Z)
 
-    local newVelocity = Vector3.new(
-        horizDir.X * desiredHorizSpeed,
-        desiredVerticalSpeed,
-        horizDir.Z * desiredHorizSpeed
-    )
+    local desiredSpeed = FOOT_SPEED
+    if dist < 15 then
+        desiredSpeed = FOOT_SPEED * (dist / 15)
+    end
 
-    root.AssemblyLinearVelocity = newVelocity
+    local targetHoriz = horizDir * desiredSpeed
+    local newHoriz = currentHoriz:Lerp(targetHoriz, FOOT_LERP_ALPHA)
+
+    local targetYVel = math.clamp(diff.Y * 5, -FOOT_MAX_VERTICAL, FOOT_MAX_VERTICAL)
+    root.AssemblyLinearVelocity = Vector3.new(newHoriz.X, targetYVel, newHoriz.Z)
 end
+
+
 
 
 local function cleanupState()
@@ -2809,8 +2848,15 @@ local function arrestSequence(target)
             ExitedCarRef = CurrentVehicle
         end
 
+        -- exit the vehicle
         exitVehicleRoutine()
         task.wait(0.2)
+
+        -- IMPORTANT: clear player velocity right after leaving the car
+        root = getHRP()
+        if root then
+            killVelocity(root)
+        end
 
         -- ===== ON-FOOT PHASE =====
         local chaseStart2   = tick()
@@ -2841,8 +2887,8 @@ local function arrestSequence(target)
             local chaseY    = math.max(targetPos.Y + 3, safeY + 3)
             local chasePos  = v3new(targetPos.X, chaseY, targetPos.Z)
 
+            -- NEW: smoother, lerped on-foot flight
             flySmoothFoot(chasePos, root)
-
 
             local dist   = (root.Position - targetPos).Magnitude
             local seated = tHum.Sit
@@ -2850,8 +2896,8 @@ local function arrestSequence(target)
             if seated then
                 -- seated: POP TIRES using pistol
                 local playersVehicle = getPlayersVehicle(target)
-                local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
-                local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
+                local tireHealth     = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
+                local tiresPopped    = (tireHealth ~= nil and tireHealth <= 0)
 
                 if tHum.Sit and playersVehicle and not tiresPopped then
                     local pistol      = equipTool("Pistol")
@@ -2859,7 +2905,6 @@ local function arrestSequence(target)
 
                     if pistol and popTiresKey then
                         Remote:FireServer(popTiresKey, playersVehicle, "Pistol")
-                        -- print("Fired Pop (on-foot phase)")
                     end
                 end
 
@@ -2873,7 +2918,7 @@ local function arrestSequence(target)
             else
                 -- NOT seated: attempt arrest – ALWAYS force equip cuffs
                 if dist <= ARREST_CHASE_RANGE then
-                    local cuffs = equipTool("Handcuffs")
+                    local cuffs         = equipTool("Handcuffs")
                     local arrestKeyUuid = KeyMap[ARREST_STABLE_KEY]
 
                     if cuffs and arrestKeyUuid then
@@ -3166,19 +3211,26 @@ task.spawn(function()
 end)
 
 
--- auto-load config once before creating UI
 pcall(loadConfig)
 
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
-Tab:Toggle("Toggle Arrest", "Toggle", library.flags.Toggle or false, function()
+local initialToggle = library.flags.Toggle
+if initialToggle == nil then
+    initialToggle = true
+end
+
+Tab:Toggle("Toggle Arrest", "Toggle", initialToggle, function(state)
     ToggleAutoArrest()
+    saveConfig()
 end)
+
 
 local SettingsTab = Lib:Tab("Settings")
 
 -- 1) Targeting
+SettingsTab:Section("Targeting")
 SettingsTab:Slider("Min Bounty", "MinBounty", tonumber(library.flags.MinBounty) or 0, 0, 20000, false, function(val)
     library.flags.MinBounty = val
     saveConfig()
@@ -3194,6 +3246,7 @@ SettingsTab:Dropdown("Target Priority", "TargetPriorityMode",
 )
 
 -- 2) Smart vehicle settings
+SettingsTab:Section("Vehicle / Movement")
 SettingsTab:Slider("No-Car Radius", "NoCarRadius", tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS, 0, 3000, false, function(val)
     library.flags.NoCarRadius = val
     saveConfig()
@@ -3211,6 +3264,7 @@ SettingsTab:Toggle("Never Use Vehicle", "NeverUseVehicle", library.flags.NeverUs
 end)
 
 -- 3) Smart server hop
+SettingsTab:Section("Smart Server Hop")
 SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
     library.flags.AutoServerHop = state
     saveConfig()
@@ -3235,6 +3289,7 @@ SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.fl
 end)
 
 -- 4) Webhook logger
+SettingsTab:Section("Webhook / Logging")
 SettingsTab:Toggle("Send Logs to Webhook", "LogToWebhook", library.flags.LogToWebhook or false, function(state)
     library.flags.LogToWebhook = state
     saveConfig()
@@ -3245,22 +3300,20 @@ SettingsTab:TextBox("Webhook URL", "WebhookURL", library.flags.WebhookURL or "",
     saveConfig()
 end)
 
-SettingsTab:Button("Test Webhook", function()
-    logWebhookEvent("test", { ok = true, time = os.time() })
-end)
-
--- 5) Target ESP line (current target only)
+-- 5) ESP
+SettingsTab:Section("ESP")
 SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTargetLine or false, function(state)
     library.flags.ShowTargetLine = state
+    saveConfig()
     if state then
         ensureTargetLine()
     else
         destroyTargetLine()
     end
-    saveConfig()
 end)
 
--- 6) Config (single file)
+-- 6) Config & UI
+SettingsTab:Section("Config & UI")
 SettingsTab:Button("Save Config", function()
     saveConfig()
 end)
@@ -3269,7 +3322,6 @@ SettingsTab:Button("Load Config", function()
     loadConfig()
 end)
 
--- 7) Misc
 SettingsTab:Button("Destroy UI", function()
     if _G.SerenityDestroyUI then
         _G.SerenityDestroyUI()
@@ -3281,3 +3333,9 @@ SettingsTab:KeyBind("Toggle UI", "RightShift", function()
         _G.SerenityToggleUI()
     end
 end)
+
+
+local joinKey = KeyMap[JOIN_TEAM_STABLE_KEY]
+if joinKey then
+    Remote:FireServer(joinKey, "Police")
+end
