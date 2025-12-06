@@ -1207,6 +1207,42 @@ local Workspace        = game:GetService("Workspace")
 local ReplicatedStorage= game:GetService("ReplicatedStorage")
 local HttpService      = game:GetService("HttpService")
 
+local TeleportService  = game:GetService("TeleportService")
+
+local CONFIG_FILE              = "Serenity_Jailbreak_Config.json"
+local DEFAULT_MIN_BOUNTY       = 0
+
+-- target stats (used for smart hop)
+local LastTargetScan           = { count = 0, maxBounty = 0, time = 0 }
+local LastTargetSeenTime       = tick()
+local LastHopTime              = 0
+local LastHopCheckTime         = 0
+local HOP_COOLDOWN             = 30 -- seconds between hops
+
+-- visual ESP for current target
+local CurrentTarget            = nil
+local TargetLinePart           = nil
+local TargetLineConnection     = nil
+
+
+local DEFAULT_NO_CAR_RADIUS    = 400
+local DEFAULT_HOP_NO_TARGETS   = 180 -- seconds
+local DEFAULT_HOP_MAX_BOUNTY   = 0   -- 0 = disabled
+local DEFAULT_HOP_MIN_PLAYERS  = 0   -- 0 = disabled
+
+-- target stats (used for smart hop)
+local LastTargetScan           = { count = 0, maxBounty = 0, time = 0 }
+local LastTargetSeenTime       = tick()
+local LastHopTime              = 0
+local LastHopCheckTime         = 0
+local HOP_COOLDOWN             = 30 -- seconds between hops
+
+-- visual ESP for current target
+local CurrentTarget            = nil
+local TargetLinePart           = nil
+local TargetLineConnection     = nil
+
+
 
 local POP_TIRES_STABLE_KEY     = keys.PopTires
 local JOIN_TEAM_STABLE_KEY     = keys.JoinTeam
@@ -1221,7 +1257,7 @@ local MIN_HEIGHT_ABOVE_GROUND  = 0
 local DROP_OFFSET_STUDS        = 5
 local FLY_SPEED_CAR            = 450
 local FLY_SPEED_FOOT           = 100
-local ROOF_RAYCAST_HEIGHT      = 150
+local ROOF_RAYCAST_HEIGHT      = 500
 local JAIL_TELEPORT_DIST       = 10000
 local TELEPORT_JUMP_THRESHOLD  = 500
 
@@ -1318,6 +1354,7 @@ local shootTarget         = nil
 
 local CoverageThread      = nil
 local TargetCoveredStartTime = nil
+local UnderRoofStartTime   = nil
 local SelfCoveredStartTime   = nil
 local IsExecutingSpawnPath   = false
 
@@ -1694,6 +1731,37 @@ local function flyToLocation(targetPos, isCar)
     end
 end
 
+
+local function flySmoothFoot(targetPos, root)
+    if not root or not root.Parent then return end
+
+    local currentPos = root.Position
+    local delta      = targetPos - currentPos
+    local dist       = delta.Magnitude
+
+    if dist < 1 then
+        root.AssemblyLinearVelocity = root.AssemblyLinearVelocity * 0.5
+        return
+    end
+
+    local horiz     = Vector3.new(delta.X, 0, delta.Z)
+    local horizDist = horiz.Magnitude
+    local horizDir  = horizDist > 0 and horiz.Unit or Vector3.new(0, 0, 0)
+
+    -- smooth acceleration based on distance
+    local desiredHorizSpeed   = math.clamp(horizDist * 4, 0, FLY_SPEED_FOOT)
+    local desiredVerticalSpeed= math.clamp(delta.Y * 3, -HOVER_ADJUST_SPEED, HOVER_ADJUST_SPEED)
+
+    local newVelocity = Vector3.new(
+        horizDir.X * desiredHorizSpeed,
+        desiredVerticalSpeed,
+        horizDir.Z * desiredHorizSpeed
+    )
+
+    root.AssemblyLinearVelocity = newVelocity
+end
+
+
 local function cleanupState()
     local root = getHRP()
     local hum = getHumanoid()
@@ -1940,46 +2008,70 @@ end
 
 local function getBestTarget()
     local root = getHRP()
-    if not root then return nil end
+    local now  = tick()
+
+    if not root then
+        LastTargetScan.count     = 0
+        LastTargetScan.maxBounty = 0
+        LastTargetScan.time      = now
+        return nil
+    end
+
+    local rootPos      = root.Position
+    local minBounty    = tonumber(library.flags.MinBounty) or DEFAULT_MIN_BOUNTY
+    local priorityMode = library.flags.TargetPriorityMode or "Default"
 
     local validTargets = {}
-    local rootPos = root.Position
+    local maxBounty    = 0
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Team and (p.Team.Name == "Criminal" or p.Team.Name == "Prisoner") then
-            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-                local tRoot = p.Character.HumanoidRootPart
-                local tHum  = p.Character.Humanoid
+            local char  = p.Character
+            local tRoot = char and char:FindFirstChild("HumanoidRootPart")
+            local tHum  = char and char:FindFirstChild("Humanoid")
+
+            if tRoot and tHum and hasPlayerEscaped(p) then
                 local currentPos = tRoot.Position
 
-                if not hasPlayerEscaped(p) then
-                    continue
-                end
+                -- basic anti‑tp + "smoothness" (approx speed)
+                local lastData    = TargetPositionHistory[p]
+                local isTeleport  = false
+                local smoothness  = math.huge
 
-                local isTeleporting = false
-                local lastPos = TargetPositionHistory[p]
-                if lastPos then
-                    local jumpDistance = (currentPos - lastPos).Magnitude
+                if lastData and lastData.pos then
+                    local jumpDistance = (currentPos - lastData.pos).Magnitude
                     if jumpDistance > TELEPORT_JUMP_THRESHOLD then
-                        isTeleporting = true
+                        isTeleport = true
+                    end
+
+                    local dt = now - (lastData.time or now)
+                    if dt > 0 then
+                        smoothness = jumpDistance / dt
                     end
                 end
-                TargetPositionHistory[p] = currentPos
 
-                if not isTeleporting then
+                TargetPositionHistory[p] = { pos = currentPos, time = now }
+
+                if not isTeleport then
                     local dist = (rootPos - currentPos).Magnitude
-                    if dist <= JAIL_TELEPORT_DIST then
-                        if not isCovered(currentPos, p) then
-                            local isAlive = tHum.Health > 0
-                            local isSafe  = p.Character:FindFirstChild("ForceField") ~= nil
-                            if isAlive and not isSafe then
-                                local bounty = getPlayerBounty(p.Name)
-                                table.insert(validTargets, {
+                    if dist <= JAIL_TELEPORT_DIST and not isCovered(currentPos, p) then
+                        local isAlive = tHum.Health > 0
+                        local isSafe  = char:FindFirstChild("ForceField") ~= nil
+
+                        if isAlive and not isSafe then
+                            local bounty = getPlayerBounty(p.Name) or 0
+                            if bounty >= minBounty then
+                                local info = {
                                     player     = p,
                                     distance   = dist,
                                     bounty     = bounty,
                                     isCriminal = (p.Team.Name == "Criminal"),
-                                })
+                                    smoothness = smoothness,
+                                }
+                                table.insert(validTargets, info)
+                                if bounty > maxBounty then
+                                    maxBounty = bounty
+                                end
                             end
                         end
                     end
@@ -1988,7 +2080,16 @@ local function getBestTarget()
         end
     end
 
-    table.sort(validTargets, function(a, b)
+    LastTargetScan.count     = #validTargets
+    LastTargetScan.maxBounty = maxBounty
+    LastTargetScan.time      = now
+
+    if #validTargets == 0 then
+        return nil
+    end
+
+    local function defaultSort(a, b)
+        -- your original logic: bounty -> criminals first -> distance
         if a.bounty ~= b.bounty then
             return a.bounty > b.bounty
         end
@@ -1996,14 +2097,34 @@ local function getBestTarget()
             return a.isCriminal
         end
         return a.distance < b.distance
-    end)
-
-    if #validTargets > 0 then
-        return validTargets[1].player
     end
 
-    return nil
+    if priorityMode == "Closest" then
+        table.sort(validTargets, function(a, b)
+            return a.distance < b.distance
+        end)
+    elseif priorityMode == "Highest Bounty" then
+        table.sort(validTargets, function(a, b)
+            if a.bounty ~= b.bounty then
+                return a.bounty > b.bounty
+            end
+            return a.distance < b.distance
+        end)
+    elseif priorityMode == "Smoothest" or priorityMode == "Lowest ping / Smoothest" then
+        table.sort(validTargets, function(a, b)
+            if a.smoothness ~= b.smoothness then
+                return a.smoothness < b.smoothness
+            end
+            return defaultSort(a, b)
+        end)
+    else
+        -- "Default"
+        table.sort(validTargets, defaultSort)
+    end
+
+    return validTargets[1].player
 end
+
 
 local function shoot()
     local gun = require(ReplicatedStorage.Game.ItemSystem.ItemSystem).GetLocalEquipped()
@@ -2163,20 +2284,50 @@ local function startCoverageMonitor()
                 continue
             end
 
-            local root = getHRP()
-            local hum  = getHumanoid()
-            if not root or not hum or hum.Health <= 0 then
-                SelfCoveredStartTime = nil
+            -- only care about cover while we're actively doing something
+            if not ActionInProgress then
+                SelfCoveredStartTime   = nil
                 TargetCoveredStartTime = nil
-                ActionInProgress = false
-                CurrentVehicle   = nil
-                ExitedCarRef     = nil
+                UnderRoofStartTime     = nil
                 continue
             end
 
-            if amICovered() then
+            local root = getHRP()
+            local hum  = getHumanoid()
+            if not root or not hum or hum.Health <= 0 then
+                SelfCoveredStartTime   = nil
+                TargetCoveredStartTime = nil
+                UnderRoofStartTime     = nil
+                ActionInProgress       = false
+                CurrentVehicle         = nil
+                ExitedCarRef           = nil
+                continue
+            end
+
+            local covered = amICovered()
+
+            if covered then
                 if not SelfCoveredStartTime then
                     SelfCoveredStartTime = tick()
+                end
+
+                -- under-roof + below hover for 5s -> hard reset
+                local underRoof = (root.Position.Y < (HOVER_HEIGHT - 20))
+                if underRoof then
+                    if not UnderRoofStartTime then
+                        UnderRoofStartTime = tick()
+                    end
+
+                    if (tick() - UnderRoofStartTime) >= 5 then
+                        warn("[Serenity] Under roof for 5s while action in progress, resetting character.")
+                        killSelf()
+                        SelfCoveredStartTime   = nil
+                        TargetCoveredStartTime = nil
+                        UnderRoofStartTime     = nil
+                        continue
+                    end
+                else
+                    UnderRoofStartTime = nil
                 end
 
                 local coveredDuration = tick() - SelfCoveredStartTime
@@ -2185,20 +2336,29 @@ local function startCoverageMonitor()
                     executeSpawnPath(spawnPath)
                     task.wait(1)
                     SelfCoveredStartTime = nil
+                    UnderRoofStartTime   = nil
                 elseif coveredDuration >= MAX_COVERED_TIME then
                     if not canEscapeCover() then
                         killSelf()
-                        SelfCoveredStartTime = nil
+                        SelfCoveredStartTime   = nil
+                        TargetCoveredStartTime = nil
+                        UnderRoofStartTime     = nil
                     end
                 end
             else
                 SelfCoveredStartTime = nil
+                UnderRoofStartTime   = nil
             end
         end
 
-        CoverageThread = nil
+        CoverageThread         = nil
+        SelfCoveredStartTime   = nil
+        TargetCoveredStartTime = nil
+        UnderRoofStartTime     = nil
     end)
 end
+
+
 
 local function stopCoverageMonitor()
     CoverageThread = nil
@@ -2208,16 +2368,296 @@ end
 
 
 
+
+-- // WEBHOOK LOGGER
+
+local function logWebhookEvent(eventType, details)
+    if not library or not library.flags then return end
+    if not library.flags.LogToWebhook then return end
+
+    local url = library.flags.WebhookURL
+    if type(url) ~= "string" or url == "" then return end
+
+    -- build message text
+    local text = ""
+
+    if type(details) == "string" then
+        text = details
+    elseif type(details) == "table" then
+        local parts = {}
+        for k, v in pairs(details) do
+            table.insert(parts, tostring(k) .. "=" .. tostring(v))
+        end
+        table.sort(parts)
+        text = table.concat(parts, " | ")
+    else
+        text = tostring(details)
+    end
+
+    local body
+    local okEncode, encodeErr = pcall(function()
+        body = HttpService:JSONEncode({
+            content = string.format("[Serenity/%s] %s", tostring(eventType), text),
+        })
+    end)
+
+    if not okEncode or not body then
+        warn("Webhook encode failed:", encodeErr)
+        return
+    end
+
+    -- prefer exploit HTTP; fallback to HttpService:PostAsync if it works
+    local requestFunc = nil
+
+    if syn and syn.request then
+        requestFunc = syn.request
+    elseif http and http.request then
+        requestFunc = http.request
+    elseif http_request then
+        requestFunc = http_request
+    elseif request then
+        requestFunc = request
+    end
+
+    local function doExploitRequest()
+        if not requestFunc then return false, "no exploit http available" end
+
+        local success, resp = pcall(requestFunc, {
+            Url     = url,
+            Method  = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body    = body,
+        })
+
+        if not success then
+            return false, resp
+        end
+
+        return true
+    end
+
+    local ok, err = doExploitRequest()
+    if not ok then
+        -- last-chance fallback: try HttpService:PostAsync, but ignore
+        -- "http requests can only be executed by server" errors
+        local s, e = pcall(function()
+            HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
+        end)
+
+        if not s and not tostring(e):find("only be executed by server") then
+            warn("Webhook log failed:", e)
+        end
+    end
+end
+
+
+-- // QUEUE SCRIPT ON TELEPORT
+
+local function queueScriptOnTeleport()
+    local code = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()'
+    local q = queue_on_teleport
+
+    if not q and syn and syn.queue_on_teleport then
+        q = syn.queue_on_teleport
+    end
+    if not q and queueonteleport then
+        q = queueonteleport
+    end
+
+    if q then
+        local ok, err = pcall(q, code)
+        if not ok then
+            warn("queue_on_teleport failed:", err)
+        end
+    end
+end
+
+local function smartServerHop(reason)
+    local now = tick()
+
+    if now - LastHopTime < HOP_COOLDOWN then
+        return
+    end
+    LastHopTime = now
+
+    logWebhookEvent("server_hop", {
+        reason      = reason,
+        maxBounty   = LastTargetScan.maxBounty or 0,
+        targetCount = LastTargetScan.count or 0,
+        playerCount = #Players:GetPlayers(),
+    })
+
+    queueScriptOnTeleport()
+
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    end)
+end
+
+local function checkServerHopConditions()
+    if not library or not library.flags or not library.flags.AutoServerHop then
+        return
+    end
+
+    local now = tick()
+    if now - LastHopCheckTime < 5 then
+        return
+    end
+    LastHopCheckTime = now
+
+    local noTargetsTime      = tonumber(library.flags.HopNoTargetsTime) or DEFAULT_HOP_NO_TARGETS
+    local maxBountyThreshold = tonumber(library.flags.HopMaxBounty)     or DEFAULT_HOP_MAX_BOUNTY
+    local minPlayers         = tonumber(library.flags.HopMinPlayers)    or DEFAULT_HOP_MIN_PLAYERS
+
+    local reason = nil
+
+    if noTargetsTime > 0 and LastTargetScan.count == 0 and (now - LastTargetSeenTime) > noTargetsTime then
+        reason = string.format("no_targets_for_%ds", math.floor(noTargetsTime))
+    elseif maxBountyThreshold > 0 and LastTargetScan.count > 0 and LastTargetScan.maxBounty < maxBountyThreshold then
+        reason = string.format("max_bounty_%d_below_%d", LastTargetScan.maxBounty, maxBountyThreshold)
+    elseif minPlayers > 0 and #Players:GetPlayers() < minPlayers then
+        reason = string.format("player_count_%d_below_%d", #Players:GetPlayers(), minPlayers)
+    end
+
+    if reason then
+        smartServerHop(reason)
+    end
+end
+
+-- // TARGET LINE (ESP ONLY FOR CURRENT TARGET)
+
+local function destroyTargetLine()
+    if TargetLineConnection then
+        TargetLineConnection:Disconnect()
+        TargetLineConnection = nil
+    end
+    if TargetLinePart then
+        TargetLinePart:Destroy()
+        TargetLinePart = nil
+    end
+end
+
+local function ensureTargetLine()
+    if not library.flags or not library.flags.ShowTargetLine then
+        destroyTargetLine()
+        return
+    end
+
+    if not TargetLinePart then
+        TargetLinePart = Instance.new("Part")
+        TargetLinePart.Name = "SerenityTargetLine"
+        TargetLinePart.Anchored = true
+        TargetLinePart.CanCollide = false
+        TargetLinePart.Material = Enum.Material.Neon
+        TargetLinePart.Color = Color3.fromRGB(51, 51, 155)
+        TargetLinePart.Size = Vector3.new(0.2, 0.2, 1)
+        TargetLinePart.Transparency = 0.2
+        TargetLinePart.Parent = Workspace
+    end
+
+    if not TargetLineConnection then
+        TargetLineConnection = RunService.RenderStepped:Connect(function()
+            if not AutoArrestEnabled or not library.flags.ShowTargetLine then
+                destroyTargetLine()
+                return
+            end
+
+            local root   = getHRP()
+            local target = CurrentTarget
+            local tRoot  = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+
+            if not root or not tRoot or not TargetLinePart then
+                if TargetLinePart then
+                    TargetLinePart.Transparency = 1
+                end
+                return
+            end
+
+            TargetLinePart.Transparency = 0.2
+
+            local p1       = root.Position
+            local p2       = tRoot.Position
+            local middle   = (p1 + p2) / 2
+            local distance = (p1 - p2).Magnitude
+
+            TargetLinePart.Size   = Vector3.new(0.2, 0.2, distance)
+            TargetLinePart.CFrame = CFrame.new(middle, p2)
+        end)
+    end
+end
+
+local function saveConfig()
+    if not writefile then return end
+
+    local ok, encoded = pcall(HttpService.JSONEncode, HttpService, {
+        flags = library.flags,
+    })
+    if not ok then
+        warn("[Serenity] Failed to encode config:", encoded)
+        return
+    end
+
+    local ok2, err = pcall(writefile, CONFIG_FILE, encoded)
+    if not ok2 then
+        warn("[Serenity] Failed to write config:", err)
+    else
+        -- print("[Serenity] Saved config to", CONFIG_FILE)
+    end
+end
+
+local function loadConfig()
+    if not readfile or not isfile then return end
+    if not isfile(CONFIG_FILE) then return end
+
+    local ok, contents = pcall(readfile, CONFIG_FILE)
+    if not ok then
+        warn("[Serenity] Failed to read config:", contents)
+        return
+    end
+
+    local ok2, decoded = pcall(HttpService.JSONDecode, HttpService, contents)
+    if not ok2 or type(decoded) ~= "table" or type(decoded.flags) ~= "table" then
+        warn("[Serenity] Invalid config format in", CONFIG_FILE)
+        return
+    end
+
+    for k, v in pairs(decoded.flags) do
+        library.flags[k] = v
+    end
+
+    -- print("[Serenity] Loaded config from", CONFIG_FILE)
+
+    if library.flags.ShowTargetLine then
+        ensureTargetLine()
+    else
+        destroyTargetLine()
+    end
+end
+
+
+
+
+local EquippedToolName = nil
+
 local function unequipAllTools()
     local folder = LocalPlayer:FindFirstChild("Folder")
     if not folder then return end
 
-    for _, toolName in ipairs({"Pistol", "Handcuffs"}) do
+    local function unequip(toolName)
         local tool = folder:FindFirstChild(toolName)
-        if tool and tool:GetAttribute("Equipped") then
-            tool.InventoryEquipRemote:FireServer(false)
+        if tool then
+            local remote = tool:FindFirstChild("InventoryEquipRemote")
+            if remote then
+                remote:FireServer(false)
+            end
         end
     end
+
+    unequip("Pistol")
+    unequip("Handcuffs")
+    EquippedToolName = nil
 end
 
 local function equipTool(toolName)
@@ -2227,14 +2667,32 @@ local function equipTool(toolName)
     local tool = folder:FindFirstChild(toolName)
     if not tool then return nil end
 
-    if tool:GetAttribute("Equipped") then
+    local remote = tool:FindFirstChild("InventoryEquipRemote")
+    if not remote then return nil end
+
+    -- already equipped (from our tracking) → do nothing
+    if EquippedToolName == toolName then
         return tool
     end
 
-    unequipAllTools()
-    tool.InventoryEquipRemote:FireServer(true)
+    -- unequip old tool if different
+    if EquippedToolName and EquippedToolName ~= toolName then
+        local oldTool = folder:FindFirstChild(EquippedToolName)
+        if oldTool then
+            local oldRemote = oldTool:FindFirstChild("InventoryEquipRemote")
+            if oldRemote then
+                oldRemote:FireServer(false)
+            end
+        end
+    end
+
+    remote:FireServer(true)
+    task.wait(0.05)
+
+    EquippedToolName = toolName
     return tool
 end
+
 
 
 
@@ -2242,6 +2700,7 @@ local function arrestSequence(target)
     ActionInProgress = true
 
     local success = false 
+    local targetNameForLog = target and target.Name or "Unknown"
 
     local ok, err = pcall(function()
         if not target then return end
@@ -2262,6 +2721,7 @@ local function arrestSequence(target)
             return
         end
 
+        -- must be in vehicle at start (your existing logic)
         if not (hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent) then
             return
         end
@@ -2272,6 +2732,7 @@ local function arrestSequence(target)
         local popWithVehicleStart = nil
         local POP_TIMEOUT = 1.5  
 
+        -- ===== CAR PHASE (unchanged logic) =====
         while AutoArrestEnabled and (tick() - startTime) < chaseTimeout do
             hum  = getHumanoid()
             root = getHRP()
@@ -2311,6 +2772,7 @@ local function arrestSequence(target)
 
             local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
             local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
+
             if playersVehicle and playersVehicle.PrimaryPart then
                 if horizontalDist < 80 then
                     local vehPos = playersVehicle.PrimaryPart.Position
@@ -2350,6 +2812,7 @@ local function arrestSequence(target)
         exitVehicleRoutine()
         task.wait(0.2)
 
+        -- ===== ON-FOOT PHASE =====
         local chaseStart2   = tick()
         local chaseTimeout2 = 15
 
@@ -2374,36 +2837,29 @@ local function arrestSequence(target)
             end
 
             local targetPos = tRoot.Position
-            local safeY    = getSafeHeight(targetPos)
-            local chaseY   = math.max(targetPos.Y + 3, safeY + 3)
-            local chasePos = v3new(targetPos.X, chaseY, targetPos.Z)
+            local safeY     = getSafeHeight(targetPos)
+            local chaseY    = math.max(targetPos.Y + 3, safeY + 3)
+            local chasePos  = v3new(targetPos.X, chaseY, targetPos.Z)
 
-            flyTowards3D(chasePos, FLY_SPEED_FOOT, root)
+            flySmoothFoot(chasePos, root)
+
 
             local dist   = (root.Position - targetPos).Magnitude
             local seated = tHum.Sit
 
-            local folder = LocalPlayer:FindFirstChild("Folder")
-            local cuffs  = folder and folder:FindFirstChild("Handcuffs")
-
             if seated then
+                -- seated: POP TIRES using pistol
                 local playersVehicle = getPlayersVehicle(target)
                 local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
                 local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
 
                 if tHum.Sit and playersVehicle and not tiresPopped then
-                    local pistol     = folder and folder:FindFirstChild("Pistol")
+                    local pistol      = equipTool("Pistol")
                     local popTiresKey = KeyMap[POP_TIRES_STABLE_KEY]
 
-                    if pistol then
-                        if not pistol:GetAttribute("Equipped") then
-                            pistol.InventoryEquipRemote:FireServer(true)
-                        end
-
-                        if popTiresKey then
-                            Remote:FireServer(popTiresKey, playersVehicle, "Pistol")
-                            print("Fired Pop (on-foot phase)")
-                        end
+                    if pistol and popTiresKey then
+                        Remote:FireServer(popTiresKey, playersVehicle, "Pistol")
+                        -- print("Fired Pop (on-foot phase)")
                     end
                 end
 
@@ -2415,10 +2871,12 @@ local function arrestSequence(target)
                     end
                 end
             else
-                if dist <= ARREST_CHASE_RANGE and cuffs then
-                    cuffs.InventoryEquipRemote:FireServer(true)
+                -- NOT seated: attempt arrest – ALWAYS force equip cuffs
+                if dist <= ARREST_CHASE_RANGE then
+                    local cuffs = equipTool("Handcuffs")
                     local arrestKeyUuid = KeyMap[ARREST_STABLE_KEY]
-                    if arrestKeyUuid then
+
+                    if cuffs and arrestKeyUuid then
                         Remote:FireServer(arrestKeyUuid, targetName)
                         Remote:FireServer(arrestKeyUuid, targetName)
                         Remote:FireServer(arrestKeyUuid, targetName)
@@ -2428,25 +2886,17 @@ local function arrestSequence(target)
 
             task.wait(ARREST_LOOP_DELAY)
         end
-    end) 
+    end)
 
     if not ok then
         warn("arrestSequence error:", err)
+        logWebhookEvent("error", tostring(err))
     end
 
     resetSilentAim()
 
-    local folder = LocalPlayer:FindFirstChild("Folder")
-    if folder then
-        local pistol = folder:FindFirstChild("Pistol")
-        if pistol and pistol:GetAttribute("Equipped") then
-            pistol.InventoryEquipRemote:FireServer(false)
-        end
-        local cuffs = folder:FindFirstChild("Handcuffs")
-        if cuffs then
-            cuffs.InventoryEquipRemote:FireServer(false)
-        end
-    end
+    -- unified cleanup: unequip everything
+    unequipAllTools()
 
     local root2 = getHRP()
     if root2 then
@@ -2459,6 +2909,14 @@ local function arrestSequence(target)
         ArrestRetryCount = 0
     else
         ArrestRetryCount = ArrestRetryCount + 1
+    end
+
+    if success and targetNameForLog then
+        logWebhookEvent("arrest", {
+            target = targetNameForLog,
+            bounty = getPlayerBounty(targetNameForLog),
+            jobId  = game.JobId,
+        })
     end
 
     return success
@@ -2482,22 +2940,12 @@ local function MainLoop()
         TargetPositionHistory  = {}
         SelfCoveredStartTime   = nil
         TargetCoveredStartTime = nil
+        CurrentTarget          = nil
+        destroyTargetLine()
         return
     end
 
     cleanupState()
-
-    if amICovered() then
-        local spawnPath = findSpawnPath()
-        if spawnPath then
-            executeSpawnPath(spawnPath)
-            task.wait(1)
-            return
-        elseif not canEscapeCover() then
-            killSelf()
-            return
-        end
-    end
 
     if VehicleRetryCount >= MAX_VEHICLE_RETRIES then
         task.wait(RETRY_COOLDOWN)
@@ -2511,9 +2959,22 @@ local function MainLoop()
         return
     end
 
+    -- get target & update stats
     local target = getBestTarget()
+    if target then
+        LastTargetSeenTime = tick()
+    end
+    CurrentTarget = target
 
-    local NO_CAR_TARGET_DISTANCE = 400
+    if library.flags.ShowTargetLine and target then
+        ensureTargetLine()
+    end
+
+    -- smart server hop based on current scan
+    checkServerHopConditions()
+
+    local NO_CAR_TARGET_DISTANCE = tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS
+    local neverUseVehicle        = library.flags.NeverUseVehicle == true
 
     hum  = getHumanoid()
     root = getHRP()
@@ -2521,7 +2982,17 @@ local function MainLoop()
 
     local inVehicle = hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent
 
+    -- if user enabled "never use vehicle", auto exit
+    if neverUseVehicle and inVehicle then
+        exitVehicleRoutine()
+        inVehicle = false
+        hum  = getHumanoid()
+        root = getHRP()
+        if not hum or not root or hum.Health <= 0 then return end
+    end
+
     if not inVehicle then
+        -- if target is close enough, just run arrestSequence (your logic handles how)
         if target and target.Character then
             local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
             if tRoot then
@@ -2534,19 +3005,29 @@ local function MainLoop()
             end
         end
 
-        local veh = getClosestVehicle()
-        if veh then
-            local success = enterVehicleRoutine(veh)
-            if not success then
-                VehicleRetryCount += 1
-                task.wait(RETRY_COOLDOWN)
+        -- otherwise, grab a vehicle unless disabled
+        if not neverUseVehicle then
+            local veh = getClosestVehicle()
+            if veh then
+                local successEnter = enterVehicleRoutine(veh)
+                if not successEnter then
+                    VehicleRetryCount += 1
+                    task.wait(RETRY_COOLDOWN)
+                end
+            else
+                local r = getHRP()
+                if r and r.Position.Y < HOVER_HEIGHT then
+                    safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
+                end
             end
         else
+            -- never use vehicle: just keep yourself at hover height when idle
             local r = getHRP()
             if r and r.Position.Y < HOVER_HEIGHT then
                 safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
             end
         end
+
         return
     end
 
@@ -2568,6 +3049,8 @@ local function MainLoop()
 end
 
 
+
+
 local function ToggleAutoArrest()
     AutoArrestEnabled = not AutoArrestEnabled
 
@@ -2586,6 +3069,11 @@ local function ToggleAutoArrest()
         StuckCheckPosition    = nil
         lastVehicleShotTime   = 0
         resetSilentAim()
+
+        if library.flags.ShowTargetLine then
+            ensureTargetLine()
+        end
+
 
         local root = getHRP()
         if root then
@@ -2619,6 +3107,11 @@ local function ToggleAutoArrest()
         end
 
         stopCoverageMonitor()
+
+        CurrentTarget = nil
+        destroyTargetLine()
+        unequipAllTools()
+
 
         AutoArrestEnabled     = false
         ActionInProgress      = false
@@ -2673,15 +3166,110 @@ task.spawn(function()
 end)
 
 
+-- auto-load config once before creating UI
+pcall(loadConfig)
+
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
-Tab:Toggle("Toggle Arrest", "Toggle", false, function()
+Tab:Toggle("Toggle Arrest", "Toggle", library.flags.Toggle or false, function()
     ToggleAutoArrest()
 end)
 
 local SettingsTab = Lib:Tab("Settings")
 
+-- 1) Targeting
+SettingsTab:Slider("Min Bounty", "MinBounty", tonumber(library.flags.MinBounty) or 0, 0, 20000, false, function(val)
+    library.flags.MinBounty = val
+    saveConfig()
+end)
+
+SettingsTab:Dropdown("Target Priority", "TargetPriorityMode",
+    {"Default", "Highest Bounty", "Closest", "Smoothest"},
+    false,
+    function(mode)
+        library.flags.TargetPriorityMode = mode
+        saveConfig()
+    end
+)
+
+-- 2) Smart vehicle settings
+SettingsTab:Slider("No-Car Radius", "NoCarRadius", tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS, 0, 3000, false, function(val)
+    library.flags.NoCarRadius = val
+    saveConfig()
+end)
+
+SettingsTab:Toggle("Never Use Vehicle", "NeverUseVehicle", library.flags.NeverUseVehicle or false, function(state)
+    library.flags.NeverUseVehicle = state
+    saveConfig()
+    if state then
+        local hum = getHumanoid()
+        if hum and hum.Sit and CurrentVehicle then
+            exitVehicleRoutine()
+        end
+    end
+end)
+
+-- 3) Smart server hop
+SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
+    library.flags.AutoServerHop = state
+    saveConfig()
+    if state then
+        LastTargetSeenTime = tick()
+    end
+end)
+
+SettingsTab:Slider("Hop: No Targets Time (s)", "HopNoTargetsTime", tonumber(library.flags.HopNoTargetsTime) or DEFAULT_HOP_NO_TARGETS, 10, 600, false, function(val)
+    library.flags.HopNoTargetsTime = val
+    saveConfig()
+end)
+
+SettingsTab:Slider("Hop: Max Bounty Threshold", "HopMaxBounty", tonumber(library.flags.HopMaxBounty) or DEFAULT_HOP_MAX_BOUNTY, 0, 50000, false, function(val)
+    library.flags.HopMaxBounty = val
+    saveConfig()
+end)
+
+SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.flags.HopMinPlayers) or DEFAULT_HOP_MIN_PLAYERS, 0, 32, false, function(val)
+    library.flags.HopMinPlayers = val
+    saveConfig()
+end)
+
+-- 4) Webhook logger
+SettingsTab:Toggle("Send Logs to Webhook", "LogToWebhook", library.flags.LogToWebhook or false, function(state)
+    library.flags.LogToWebhook = state
+    saveConfig()
+end)
+
+SettingsTab:TextBox("Webhook URL", "WebhookURL", library.flags.WebhookURL or "", function(text)
+    library.flags.WebhookURL = text
+    saveConfig()
+end)
+
+SettingsTab:Button("Test Webhook", function()
+    logWebhookEvent("test", { ok = true, time = os.time() })
+end)
+
+-- 5) Target ESP line (current target only)
+SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTargetLine or false, function(state)
+    library.flags.ShowTargetLine = state
+    if state then
+        ensureTargetLine()
+    else
+        destroyTargetLine()
+    end
+    saveConfig()
+end)
+
+-- 6) Config (single file)
+SettingsTab:Button("Save Config", function()
+    saveConfig()
+end)
+
+SettingsTab:Button("Load Config", function()
+    loadConfig()
+end)
+
+-- 7) Misc
 SettingsTab:Button("Destroy UI", function()
     if _G.SerenityDestroyUI then
         _G.SerenityDestroyUI()
@@ -2693,8 +3281,3 @@ SettingsTab:KeyBind("Toggle UI", "RightShift", function()
         _G.SerenityToggleUI()
     end
 end)
-
-local joinKey = KeyMap[JOIN_TEAM_STABLE_KEY]
-if joinKey then
-    Remote:FireServer(joinKey, "Police")
-end
