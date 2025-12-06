@@ -2476,9 +2476,6 @@ local function arrestSequence(target)
                 end
             end
         end)
-
-
-        
         task.wait(0.2)
     end
 
