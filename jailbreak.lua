@@ -1,4 +1,9 @@
 
+local Serenity = {
+    Version = "1.0.0",
+}
+
+
 local library = {}
 library.flags = {}
 library.statusConsole = nil
@@ -19,11 +24,11 @@ local theme = {
 }
 
 
-local function Tween(obj, size, delay)
+local function tweenSize(obj, size, delay)
     obj:TweenSize(size, "Out", "Sine", delay, false)
 end
 
-local function Tween2(obj, t, data)
+local function tweenProps(obj, t, data)
     game:GetService("TweenService"):Create(
         obj,
         TweenInfo.new(t[1], Enum.EasingStyle[t[2]], Enum.EasingDirection[t[3]]),
@@ -32,41 +37,41 @@ local function Tween2(obj, t, data)
     return true
 end
 
-local function Ripple(obj)
+local function applyRipple(obj)
     task.spawn(function()
         if obj.ClipsDescendants ~= true then
             obj.ClipsDescendants = true
         end
-        local Ripple = Instance.new("ImageLabel")
-        Ripple.Name = "Ripple"
-        Ripple.Parent = obj
-        Ripple.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        Ripple.BackgroundTransparency = 1
-        Ripple.ZIndex = 8
-        Ripple.Image = "rbxassetid://2708891598"
-        Ripple.ImageTransparency = 0.8
-        Ripple.ScaleType = Enum.ScaleType.Fit
-        Ripple.ImageColor3 = Color3.fromRGB(0, 0, 0)
-        Ripple.Position = UDim2.new(
-            (mouse.X - Ripple.AbsolutePosition.X) / obj.AbsoluteSize.X,
+        local applyRipple = Instance.new("ImageLabel")
+        applyRipple.Name = "applyRipple"
+        applyRipple.Parent = obj
+        applyRipple.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        applyRipple.BackgroundTransparency = 1
+        applyRipple.ZIndex = 8
+        applyRipple.Image = "rbxassetid://2708891598"
+        applyRipple.ImageTransparency = 0.8
+        applyRipple.ScaleType = Enum.ScaleType.Fit
+        applyRipple.ImageColor3 = Color3.fromRGB(0, 0, 0)
+        applyRipple.Position = UDim2.new(
+            (mouse.X - applyRipple.AbsolutePosition.X) / obj.AbsoluteSize.X,
             0,
-            (mouse.Y - Ripple.AbsolutePosition.Y) / obj.AbsoluteSize.Y,
+            (mouse.Y - applyRipple.AbsolutePosition.Y) / obj.AbsoluteSize.Y,
             0
         )
-        Tween2(Ripple, {0.3, "Linear", "InOut"}, {
+        tweenProps(applyRipple, {0.3, "Linear", "InOut"}, {
             Position = UDim2.new(-5.5, 0, -5.5, 0),
             Size = UDim2.new(12, 0, 12, 0),
         })
         task.wait(0.15)
-        Tween2(Ripple, {0.3, "Linear", "InOut"}, {
+        tweenProps(applyRipple, {0.3, "Linear", "InOut"}, {
             ImageTransparency = 1,
         })
         task.wait(0.3)
-        Ripple:Destroy()
+        applyRipple:Destroy()
     end)
 end
 
-local function timestamp()
+local function getTimestampString()
     local ok, res = pcall(function()
         return os.date("%H:%M:%S")
     end)
@@ -80,11 +85,11 @@ function library:LogStatus(message)
 
     local console = self.statusConsole
     if console and console.AddLine then
-        console:AddLine(string.format("[%s] %s", timestamp(), message))
+        console:AddLine(string.format("[%s] %s", getTimestampString(), message))
     end
 end
 
-local function SetTabHighlight(section, active)
+local function updateTabHighlight(section, active)
     if not section then return end
     local btn = section:GetAttribute("TabButton")
     if not btn or not btn:IsA("TextButton") then return end
@@ -92,7 +97,7 @@ local function SetTabHighlight(section, active)
     local targetBg   = active and theme.accent2 or theme.secondary
     local targetText = active and theme.accent or theme.muted
 
-    Tween2(btn, {0.15, "Sine", "Out"}, {
+    tweenProps(btn, {0.15, "Sine", "Out"}, {
         BackgroundColor3 = targetBg,
         TextColor3       = targetText,
     })
@@ -100,7 +105,7 @@ end
 
 
 local changingTab = false
-local function SwitchTab(Tab)
+local function switchTabContent(Tab)
     if changingTab then return end
     local New = Tab[1]
     local Old = library.currentTab
@@ -108,23 +113,23 @@ local function SwitchTab(Tab)
     if Old == nil then
         library.currentTab = New
         New.Visible = true
-        SetTabHighlight(New, true)
+        updateTabHighlight(New, true)
         return
     end
 
     if New.Visible == true then return end
 
     changingTab = true
-    SetTabHighlight(Old, false)
+    updateTabHighlight(Old, false)
 
-    Tween(Old.Parent, UDim2.new(0, 440, 0, 0), 0.1)
+    tweenSize(Old.Parent, UDim2.new(0, 440, 0, 0), 0.1)
     Old.Visible = false
     task.wait(0.2)
 
     New.Visible = true
-    SetTabHighlight(New, true)
+    updateTabHighlight(New, true)
 
-    Tween(New.Parent, UDim2.new(0, 440, 0, 318), 0.1)
+    tweenSize(New.Parent, UDim2.new(0, 440, 0, 318), 0.1)
     library.currentTab = New
 
     task.wait(0.1)
@@ -132,7 +137,7 @@ local function SwitchTab(Tab)
 end
 
 
-local function drag(frame, hold)
+local function enableDrag(frame, hold)
     if not hold then
         hold = frame
     end
@@ -141,7 +146,7 @@ local function drag(frame, hold)
     local dragStart
     local startPos
 
-    local function update(input)
+    local function updateDragPosition(input)
         local delta = input.Position - dragStart
         frame.Position = UDim2.new(
             startPos.X.Scale,
@@ -173,7 +178,7 @@ local function drag(frame, hold)
 
     game:GetService("UserInputService").InputChanged:Connect(function(input)
         if input == dragInput and dragging then
-            update(input)
+            updateDragPosition(input)
         end
     end)
 end
@@ -197,13 +202,13 @@ function library:Create(title)
     local TopFrameC = Instance.new("UICorner")
     local Title = Instance.new("TextLabel")
 
-    local function DestroyUI()
+    local function destroyMainGui()
         if Serenity then
             Serenity:Destroy()
         end
     end
 
-    _G.SerenityDestroyUI = DestroyUI
+    _G.SerenityDestroyUI = destroyMainGui
 
     Serenity.Name = "Serenity"
     Serenity.Parent = game:WaitForChild("CoreGui")
@@ -221,19 +226,19 @@ function library:Create(title)
     MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     MainStroke.Parent = MainFrame
 
-    local function ToggleUI()
+    local function toggleMainGui()
         toggled = not toggled
         if not MainFrame.ClipsDescendants then
             MainFrame.ClipsDescendants = true
         end
         if toggled then
-            Tween(MainFrame, UDim2.new(0, 587, 0, 0), 0.15)
+            tweenSize(MainFrame, UDim2.new(0, 587, 0, 0), 0.15)
         else
-            Tween(MainFrame, UDim2.new(0, 587, 0, 366), 0.15)
+            tweenSize(MainFrame, UDim2.new(0, 587, 0, 366), 0.15)
         end
     end
 
-    _G.SerenityToggleUI = ToggleUI
+    _G.SerenityToggleUI = toggleMainGui
 
     MainFrameC.CornerRadius = UDim.new(0, 8)
     MainFrameC.Name = "MainFrameC"
@@ -329,7 +334,7 @@ function library:Create(title)
     Title.TextXAlignment = Enum.TextXAlignment.Left
 
 
-    drag(MainFrame, TopFrame)
+    enableDrag(MainFrame, TopFrame)
 
     TabContainerL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         TabContainer.CanvasSize = UDim2.new(0, 0, 0, TabContainerL.AbsoluteContentSize.Y + 18)
@@ -395,13 +400,13 @@ function library:Create(title)
 
         TabOpen.MouseButton1Click:Connect(function()
             task.spawn(function()
-                Ripple(TabOpen)
+                applyRipple(TabOpen)
             end)
-            SwitchTab({Section})
+            switchTabContent({Section})
         end)
 
         if library.currentTab == nil then
-            SwitchTab({Section})
+            switchTabContent({Section})
         end
 
         local TabHolderObject = {}
@@ -491,7 +496,7 @@ function library:Create(title)
 
             Button.MouseButton1Click:Connect(function()
                 task.spawn(function()
-                    Ripple(Button)
+                    applyRipple(Button)
                 end)
                 task.spawn(callback)
             end)
@@ -766,7 +771,7 @@ function library:Create(title)
 
             ToggleBtn.MouseButton1Click:Connect(function()
                 task.spawn(function()
-                    Ripple(ToggleBtn)
+                    applyRipple(ToggleBtn)
                 end)
                 funcs:SetState(nil) 
             end)
@@ -1065,7 +1070,7 @@ function library:Create(title)
             DropdownFrameL.SortOrder = Enum.SortOrder.LayoutOrder
             DropdownFrameL.Padding = UDim.new(0, 4)
 
-            local function setAllVisible()
+            local function showAllDropdownOptions()
                 for _, option in ipairs(DropdownFrame:GetChildren()) do
                     if option:IsA("TextButton") and option.Name:match("Option_") then
                         option.Visible = true
@@ -1073,7 +1078,7 @@ function library:Create(title)
                 end
             end
 
-            local function searchDropdown(text)
+            local function filterDropdownOptions(text)
                 for _, option in ipairs(DropdownFrame:GetChildren()) do
                     if option:IsA("TextButton") and option.Name:match("Option_") then
                         if text == "" then
@@ -1086,9 +1091,9 @@ function library:Create(title)
             end
 
             local open = false
-            local function ToggleDropVis()
+            local function toggleDropdownList()
                 open = not open
-                if open then setAllVisible() end
+                if open then showAllDropdownOptions() end
                 DropdownOpen.Text = (open and "-" or "+")
                 DropdownFrame.Size = UDim2.new(
                     0,
@@ -1098,10 +1103,10 @@ function library:Create(title)
                 )
             end
 
-            DropdownOpen.MouseButton1Click:Connect(ToggleDropVis)
+            DropdownOpen.MouseButton1Click:Connect(toggleDropdownList)
             DropdownText.Focused:Connect(function()
                 if open then return end
-                ToggleDropVis()
+                toggleDropdownList()
             end)
 
             local prefix = "   "
@@ -1116,7 +1121,7 @@ function library:Create(title)
                 end
 
                 local searchText = DropdownText.Text:sub(#prefix + 1)
-                searchDropdown(searchText)
+                filterDropdownOptions(searchText)
             end)
 
             DropdownFrameL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -1151,7 +1156,7 @@ function library:Create(title)
                 OptionC.Parent = Option
 
                 Option.MouseButton1Click:Connect(function()
-                    ToggleDropVis()
+                    toggleDropdownList()
                     callback(Option.Text)
                     if not resettext then
                         DropdownText.Text = Option.Text
@@ -1614,15 +1619,15 @@ end
 
 
 
-local function getHRP()
+local function getRootPart()
     return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 end
 
-local function getHumanoid()
+local function getCharacterHumanoid()
     return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
 end
 
-local function killVelocity(part)
+local function resetPartVelocity(part)
     if part then
         part.Velocity = Vector3.zero
         part.RotVelocity = Vector3.zero
@@ -1632,7 +1637,7 @@ local function killVelocity(part)
     end
 end
 
-local function getBountyData()
+local function readBountyData()
     local bountyDataValue = ReplicatedStorage:FindFirstChild("BountyData")
     if bountyDataValue and bountyDataValue:IsA("StringValue") then
         local success, data = pcall(function()
@@ -1645,8 +1650,8 @@ local function getBountyData()
     return {}
 end
 
-local function getPlayerBounty(playerName)
-    local bountyData = getBountyData()
+local function getPlayerBountyAmount(playerName)
+    local bountyData = readBountyData()
     for _, entry in ipairs(bountyData) do
         if entry.Name == playerName then
             return entry.Bounty or 0
@@ -1655,7 +1660,7 @@ local function getPlayerBounty(playerName)
     return 0
 end
 
-local function hasPlayerEscaped(player)
+local function hasPlayerLeftPrison(player)
     if not player then return true end
 
     local hasEscapedValue = player:FindFirstChild("HasEscaped")
@@ -1675,7 +1680,7 @@ local function hasPlayerEscaped(player)
     return true
 end
 
-local function getSafeHeight(position)
+local function getSafeHeightAboveGround(position)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, CurrentVehicle}
@@ -1688,7 +1693,7 @@ local function getSafeHeight(position)
     return position.Y
 end
 
-local function isCovered(position, targetPlayer)
+local function isPositionUnderCover(position, targetPlayer)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
@@ -1713,8 +1718,8 @@ local function isCovered(position, targetPlayer)
     return ray ~= nil
 end
 
-local function amICovered()
-    local root = getHRP()
+local function isLocalPlayerUnderCover()
+    local root = getRootPart()
     if not root then return false end
 
     local partsToExclude = {LocalPlayer.Character}
@@ -1738,7 +1743,7 @@ local function amICovered()
     return ray ~= nil
 end
 
-local function flyTowards3D(targetPos, speed, moverPart)
+local function setVelocityTowards(targetPos, speed, moverPart)
     if not moverPart or not moverPart.Parent then return end
 
     local currentPos = moverPart.Position
@@ -1753,8 +1758,8 @@ local function flyTowards3D(targetPos, speed, moverPart)
     end
 end
 
-local function findSpawnPath()
-    local root = getHRP()
+local function getNearestSpawnPath()
+    local root = getRootPart()
     if not root then return nil end
 
     local myPos = root.Position
@@ -1772,9 +1777,9 @@ local function findSpawnPath()
     return closestPath
 end
 
-local function safeVerticalTeleport(targetPos)
-    local root = getHRP()
-    local hum  = getHumanoid()
+local function snapVerticalPosition(targetPos)
+    local root = getRootPart()
+    local hum  = getCharacterHumanoid()
     if not root or not hum then return end
 
     local moverPart = CurrentVehicle and CurrentVehicle.PrimaryPart or root
@@ -1790,16 +1795,16 @@ local function safeVerticalTeleport(targetPos)
         else
             root.CFrame = newCFrame
         end
-        killVelocity(moverPart)
+        resetPartVelocity(moverPart)
     end
 end
 
-local function executeSpawnPath(waypoints)
+local function runSpawnPathWaypoints(waypoints)
     if IsExecutingSpawnPath then return end
     IsExecutingSpawnPath = true
 
-    local root = getHRP()
-    local hum = getHumanoid()
+    local root = getRootPart()
+    local hum = getCharacterHumanoid()
     if not root or not hum then
         IsExecutingSpawnPath = false
         return
@@ -1820,7 +1825,7 @@ local function executeSpawnPath(waypoints)
         local WAYPOINT_TIMEOUT = 10
 
         while true do
-            root = getHRP()
+            root = getRootPart()
             if not root or not root.Parent then break end
 
             local dist = (root.Position - waypoint).Magnitude
@@ -1833,9 +1838,9 @@ local function executeSpawnPath(waypoints)
             task.wait()
         end
 
-        root = getHRP()
+        root = getRootPart()
         if root then
-            killVelocity(root)
+            resetPartVelocity(root)
         end
     end
 
@@ -1851,26 +1856,26 @@ local function executeSpawnPath(waypoints)
         end
     end
 
-    root = getHRP()
+    root = getRootPart()
     if root then
-        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+        snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
     end
 
     IsExecutingSpawnPath = false
 end
 
-local function killSelf()
-    local hum = getHumanoid()
+local function resetLocalCharacter()
+    local hum = getCharacterHumanoid()
     if hum then
         hum.Health = 0
     end
 end
 
-local function canEscapeCover()
-    local root = getHRP()
+local function canEscapeRoofCover()
+    local root = getRootPart()
     if not root then return false end
 
-    local spawnPath = findSpawnPath()
+    local spawnPath = getNearestSpawnPath()
     if spawnPath then
         return true
     end
@@ -1906,14 +1911,14 @@ local function canEscapeCover()
     return false
 end
 
-local function flyToLocation(targetPos, isCar)
-    local root = getHRP()
+local function moveToWorldPosition(targetPos, isCar)
+    local root = getRootPart()
     if not root then return end
 
-    if amICovered() then
-        local spawnPath = findSpawnPath()
+    if isLocalPlayerUnderCover() then
+        local spawnPath = getNearestSpawnPath()
         if spawnPath then
-            executeSpawnPath(spawnPath)
+            runSpawnPathWaypoints(spawnPath)
             task.wait(1)
             return
         end
@@ -1951,7 +1956,7 @@ local function flyToLocation(targetPos, isCar)
     moverPart.AssemblyLinearVelocity = v3new(desiredVelocityX, desiredVelocityY, desiredVelocityZ)
 
     if math.abs(yError) > VERTICAL_SNAP_THRESHOLD then
-        safeVerticalTeleport(v3new(currentPos.X, targetY, currentPos.Z))
+        snapVerticalPosition(v3new(currentPos.X, targetY, currentPos.Z))
     end
 end
 
@@ -1961,10 +1966,10 @@ local FOOT_LERP_ALPHA   = 0.7
 local FOOT_MAX_VERTICAL = 120
 local FOOT_HOVER_OFFSET = 3
 
-local function flySmoothFoot(targetPos, root)
+local function stepTowardsOnFoot(targetPos, root)
     if not root or not root.Parent then return end
 
-    local safeY = getSafeHeight(targetPos)
+    local safeY = getSafeHeightAboveGround(targetPos)
     targetPos = Vector3.new(targetPos.X, math.max(targetPos.Y + FOOT_HOVER_OFFSET, safeY + FOOT_HOVER_OFFSET), targetPos.Z)
 
     local pos  = root.Position
@@ -2000,9 +2005,9 @@ end
 
 
 
-local function cleanupState()
-    local root = getHRP()
-    local hum = getHumanoid()
+local function resetAutoArrestState()
+    local root = getRootPart()
+    local hum = getCharacterHumanoid()
     if not root or not hum then
         CurrentVehicle = nil
         ActionInProgress = false
@@ -2019,7 +2024,7 @@ local function cleanupState()
                 if key then Remote:FireServer(key) end
                 task.wait(0.05)
             end
-            safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+            snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
             ActionInProgress = false
             return
         end
@@ -2029,7 +2034,7 @@ local function cleanupState()
         local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
         if key then Remote:FireServer(key) end
         task.wait(0.05)
-        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+        snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
         ActionInProgress = false
         return
     end
@@ -2046,7 +2051,7 @@ local function cleanupState()
                 task.wait(0.05)
             end
 
-            safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+            snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
             StuckCheckPosition = nil
             return
         end
@@ -2056,7 +2061,7 @@ local function cleanupState()
     LastActionTime = tick()
 end
 
-local function getClosestVehicleToPlayer(player)
+local function getClosestVehicleNearPlayer(player)
     if not player or not player.Character then return nil end
     local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
     if not playerRoot then return nil end
@@ -2082,7 +2087,7 @@ local function getClosestVehicleToPlayer(player)
     return closest
 end
 
-local function getTargetVehiclePart(player)
+local function getVehicleTargetPart(player)
     if not player or not player.Character then return nil end
     local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
     if not playerRoot then return nil end
@@ -2110,8 +2115,8 @@ local function getTargetVehiclePart(player)
     return closest
 end
 
-local function getClosestVehicle()
-    local root = getHRP()
+local function getClosestAllowedVehicle()
+    local root = getRootPart()
     local vFolder = Workspace:FindFirstChild("Vehicles")
     if not root or not vFolder then return nil end
 
@@ -2126,7 +2131,7 @@ local function getClosestVehicle()
                 local isAvailable = not vehicle:GetAttribute("Locked") and not vehicle:GetAttribute("VehicleHasDriver")
                 if isAvailable then
                     local d = (root.Position - prim.Position).Magnitude
-                    if d < dist and prim.CFrame.UpVector.Y > 0.1 and not isCovered(prim.Position, nil) then
+                    if d < dist and prim.CFrame.UpVector.Y > 0.1 and not isPositionUnderCover(prim.Position, nil) then
                         closest = vehicle
                         dist = d
                     end
@@ -2138,12 +2143,12 @@ local function getClosestVehicle()
     return closest
 end
 
-local function enterVehicleRoutine(vehicle)
+local function enterVehicleFlow(vehicle)
     ActionInProgress = true
     library:LogStatus("Moving to vehicle: " .. (vehicle and vehicle.Name or "Unknown"))
 
 
-    local root = getHRP()
+    local root = getRootPart()
     local prim = vehicle.PrimaryPart
 
     if not root or not prim or not prim.Parent then
@@ -2153,19 +2158,19 @@ local function enterVehicleRoutine(vehicle)
         return false
     end
 
-    if amICovered() then
-        local spawnPath = findSpawnPath()
+    if isLocalPlayerUnderCover() then
+        local spawnPath = getNearestSpawnPath()
         if spawnPath then
-            executeSpawnPath(spawnPath)
+            runSpawnPathWaypoints(spawnPath)
             task.wait(1)
-        elseif not canEscapeCover() then
-            killSelf()
+        elseif not canEscapeRoofCover() then
+            resetLocalCharacter()
             ActionInProgress = false
             return false
         end
     end
 
-    safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+    snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
 
     local t = tick()
     while (v3new(root.Position.X, 0, root.Position.Z) - v3new(prim.Position.X, 0, prim.Position.Z)).Magnitude > 10
@@ -2180,9 +2185,9 @@ local function enterVehicleRoutine(vehicle)
         end
 
         local targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
-        flyToLocation(targetPosXZ, false)
+        moveToWorldPosition(targetPosXZ, false)
         task.wait()
-        root = getHRP()
+        root = getRootPart()
         if not root then break end
     end
 
@@ -2194,8 +2199,8 @@ local function enterVehicleRoutine(vehicle)
         return false
     end
 
-    local safeEntryHeight = math.max(prim.Position.Y + DROP_OFFSET_STUDS, getSafeHeight(prim.Position))
-    safeVerticalTeleport(v3new(prim.Position.X, safeEntryHeight, prim.Position.Z))
+    local safeEntryHeight = math.max(prim.Position.Y + DROP_OFFSET_STUDS, getSafeHeightAboveGround(prim.Position))
+    snapVerticalPosition(v3new(prim.Position.X, safeEntryHeight, prim.Position.Z))
 
     local key = KeyMap[VEHICLE_ENTRY_STABLE_KEY]
     if key then
@@ -2207,36 +2212,36 @@ local function enterVehicleRoutine(vehicle)
                 return false
             end
             Remote:FireServer(key, vehicle, vehicle.Seat)
-            if getHumanoid() and getHumanoid().Sit then break end
+            if getCharacterHumanoid() and getCharacterHumanoid().Sit then break end
             task.wait(0.1)
         end
     end
 
     task.wait(0.1)
 
-    local hum = getHumanoid()
+    local hum = getCharacterHumanoid()
     if hum and hum.Sit and vehicle.PrimaryPart and vehicle.PrimaryPart.Parent then
         CurrentVehicle = vehicle
         library:LogStatus("Entered vehicle: " .. tostring(vehicle.Name))
 
         VehicleRetryCount = 0
-        safeVerticalTeleport(v3new(vehicle.PrimaryPart.Position.X, HOVER_HEIGHT, vehicle.PrimaryPart.Position.Z))
+        snapVerticalPosition(v3new(vehicle.PrimaryPart.Position.X, HOVER_HEIGHT, vehicle.PrimaryPart.Position.Z))
         ActionInProgress = false
         return true
     else
         CurrentVehicle = nil
         VehicleRetryCount += 1
-        root = getHRP()
+        root = getRootPart()
         if root then
-            safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+            snapVerticalPosition(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
         end
         ActionInProgress = false
         return false
     end
 end
 
-local function exitVehicleRoutine()
-    local hum = getHumanoid()
+local function exitVehicleFlow()
+    local hum = getCharacterHumanoid()
     if not CurrentVehicle or not hum or not hum.Sit then return end
 
     local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
@@ -2248,8 +2253,8 @@ local function exitVehicleRoutine()
     CurrentVehicle = nil
 end
 
-local function getBestTarget()
-    local root = getHRP()
+local function selectBestTarget()
+    local root = getRootPart()
     local now  = tick()
 
     if not root then
@@ -2272,7 +2277,7 @@ local function getBestTarget()
             local tRoot = char and char:FindFirstChild("HumanoidRootPart")
             local tHum  = char and char:FindFirstChild("Humanoid")
 
-            if tRoot and tHum and hasPlayerEscaped(p) then
+            if tRoot and tHum and hasPlayerLeftPrison(p) then
                 local currentPos = tRoot.Position
 
                 local lastData    = TargetPositionHistory[p]
@@ -2295,12 +2300,12 @@ local function getBestTarget()
 
                 if not isTeleport then
                     local dist = (rootPos - currentPos).Magnitude
-                    if dist <= JAIL_TELEPORT_DIST and not isCovered(currentPos, p) then
+                    if dist <= JAIL_TELEPORT_DIST and not isPositionUnderCover(currentPos, p) then
                         local isAlive = tHum.Health > 0
                         local isSafe  = char:FindFirstChild("ForceField") ~= nil
 
                         if isAlive and not isSafe then
-                            local bounty = getPlayerBounty(p.Name) or 0
+                            local bounty = getPlayerBountyAmount(p.Name) or 0
                             if bounty >= minBounty then
                                 local info = {
                                     player     = p,
@@ -2329,7 +2334,7 @@ local function getBestTarget()
         return nil
     end
 
-    local function defaultSort(a, b)
+    local function defaultTargetSort(a, b)
         if a.bounty ~= b.bounty then
             return a.bounty > b.bounty
         end
@@ -2355,24 +2360,24 @@ local function getBestTarget()
             if a.smoothness ~= b.smoothness then
                 return a.smoothness < b.smoothness
             end
-            return defaultSort(a, b)
+            return defaultTargetSort(a, b)
         end)
     else
-        table.sort(validTargets, defaultSort)
+        table.sort(validTargets, defaultTargetSort)
     end
 
     return validTargets[1].player
 end
 
 
-local function shoot()
+local function fireArrestWeapon()
     local gun = require(ReplicatedStorage.Game.ItemSystem.ItemSystem).GetLocalEquipped()
     if gun then
         require(ReplicatedStorage.Game.Item.Gun)._attemptShoot(gun)
     end
 end
 
-local function setupSilentAim(targetPart)
+local function enableSilentAimHooks(targetPart)
     if not oldRayCast then
         oldRayCast = require(ReplicatedStorage.Module.RayCast).RayIgnoreNonCollideWithIgnoreList
     end
@@ -2390,14 +2395,14 @@ local function setupSilentAim(targetPart)
     end
 end
 
-local function resetSilentAim()
+local function disableSilentAimHooks()
     if oldRayCast then
         require(ReplicatedStorage.Module.RayCast).RayIgnoreNonCollideWithIgnoreList = oldRayCast
     end
     shootTarget = nil
 end
 
-local function getVehicleBackPosition(targetVehicle, targetRoot)
+local function getVehicleRearPosition(targetVehicle, targetRoot)
     if not targetVehicle or not targetVehicle.PrimaryPart then return nil end
     if not targetRoot then return nil end
 
@@ -2411,16 +2416,16 @@ local function getVehicleBackPosition(targetVehicle, targetRoot)
     return backPosition, lookVector
 end
 
-local function ramTargetVehicle(target)
+local function ramTargetVehicleBody(target)
     if not CurrentVehicle or not CurrentVehicle.PrimaryPart then return false end
 
     local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not tRoot then return false end
 
-    local targetVehicle = getClosestVehicleToPlayer(target)
+    local targetVehicle = getClosestVehicleNearPlayer(target)
     if not targetVehicle or not targetVehicle.PrimaryPart then return false end
 
-    local backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
+    local backPos, targetLookVector = getVehicleRearPosition(targetVehicle, tRoot)
     if not backPos then return false end
 
     local myVehicle = CurrentVehicle
@@ -2441,7 +2446,7 @@ local function ramTargetVehicle(target)
         tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
         if not tRoot then break end
 
-        backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
+        backPos, targetLookVector = getVehicleRearPosition(targetVehicle, tRoot)
         if not backPos then break end
 
         myPart = myVehicle.PrimaryPart
@@ -2459,24 +2464,24 @@ local function ramTargetVehicle(target)
     end
 
     if myVehicle and myVehicle.PrimaryPart then
-        killVelocity(myVehicle.PrimaryPart)
+        resetPartVelocity(myVehicle.PrimaryPart)
     end
 
     return true
 end
 
-local function getPlayersVehicle(player)
+local function getPlayerVehicle(player)
     if not player or not player.Character then return nil end
     local tHum = player.Character:FindFirstChild("Humanoid")
     if tHum and tHum.SeatPart and tHum.SeatPart.Parent then
         return tHum.SeatPart.Parent
     end
-    return getClosestVehicleToPlayer(player)
+    return getClosestVehicleNearPlayer(player)
 end
 
 local lastVehicleShotTime = 0
 
-local function stepShootVehicle(target)
+local function stepShootAtVehicle(target)
     if SHOOT_COOLDOWN <= 0 then return end
     if tick() - lastVehicleShotTime < SHOOT_COOLDOWN then return end
 
@@ -2485,7 +2490,7 @@ local function stepShootVehicle(target)
     local pistol = folder:FindFirstChild("Pistol")
     if not pistol then return end
 
-    local vehicle = getPlayersVehicle(target)
+    local vehicle = getPlayerVehicle(target)
     if not vehicle or not vehicle.PrimaryPart then return end
 
     local tireHealth = vehicle:GetAttribute("VehicleTireHealth")
@@ -2497,11 +2502,11 @@ local function stepShootVehicle(target)
         pistol.InventoryEquipRemote:FireServer(true)
     end
 
-    setupSilentAim(vehicle.PrimaryPart)
+    enableSilentAimHooks(vehicle.PrimaryPart)
 
     local ammo = pistol:GetAttribute("AmmoCurrentLocal")
     if ammo and ammo > 0 then
-        shoot()
+        fireArrestWeapon()
     else
         local reloadRemote = pistol:FindFirstChild("Reload")
         if reloadRemote then
@@ -2512,7 +2517,7 @@ local function stepShootVehicle(target)
     lastVehicleShotTime = tick()
 end
 
-local function startCoverageMonitor()
+local function startCoverCheckLoop()
     if CoverageThread then return end
 
     CoverageThread = task.spawn(function()
@@ -2530,8 +2535,8 @@ local function startCoverageMonitor()
                 continue
             end
 
-            local root = getHRP()
-            local hum  = getHumanoid()
+            local root = getRootPart()
+            local hum  = getCharacterHumanoid()
             if not root or not hum or hum.Health <= 0 then
                 SelfCoveredStartTime   = nil
                 TargetCoveredStartTime = nil
@@ -2542,7 +2547,7 @@ local function startCoverageMonitor()
                 continue
             end
 
-            local covered = amICovered()
+            local covered = isLocalPlayerUnderCover()
 
             if covered then
                 if not SelfCoveredStartTime then
@@ -2557,7 +2562,7 @@ local function startCoverageMonitor()
 
                     if (tick() - UnderRoofStartTime) >= 5 then
                         warn("[Serenity] Under roof for 5s while action in progress, resetting character.")
-                        killSelf()
+                        resetLocalCharacter()
                         SelfCoveredStartTime   = nil
                         TargetCoveredStartTime = nil
                         UnderRoofStartTime     = nil
@@ -2568,15 +2573,15 @@ local function startCoverageMonitor()
                 end
 
                 local coveredDuration = tick() - SelfCoveredStartTime
-                local spawnPath = findSpawnPath()
+                local spawnPath = getNearestSpawnPath()
                 if spawnPath then
-                    executeSpawnPath(spawnPath)
+                    runSpawnPathWaypoints(spawnPath)
                     task.wait(1)
                     SelfCoveredStartTime = nil
                     UnderRoofStartTime   = nil
                 elseif coveredDuration >= MAX_COVERED_TIME then
-                    if not canEscapeCover() then
-                        killSelf()
+                    if not canEscapeRoofCover() then
+                        resetLocalCharacter()
                         SelfCoveredStartTime   = nil
                         TargetCoveredStartTime = nil
                         UnderRoofStartTime     = nil
@@ -2597,7 +2602,7 @@ end
 
 
 
-local function stopCoverageMonitor()
+local function stopCoverCheckLoop()
     CoverageThread = nil
     SelfCoveredStartTime = nil
     TargetCoveredStartTime = nil
@@ -2607,7 +2612,7 @@ end
 
 
 
-local function logWebhookEvent(eventType, details)
+local function sendWebhookLog(eventType, details)
     if not library or not library.flags then return end
     if not library.flags.LogToWebhook then return end
 
@@ -2653,7 +2658,7 @@ local function logWebhookEvent(eventType, details)
         requestFunc = request
     end
 
-    local function doExploitRequest()
+    local function doHttpExploitRequest()
         if not requestFunc then return false, "no exploit http available" end
 
         local success, resp = pcall(requestFunc, {
@@ -2672,7 +2677,7 @@ local function logWebhookEvent(eventType, details)
         return true
     end
 
-    local ok, err = doExploitRequest()
+    local ok, err = doHttpExploitRequest()
     if not ok then
         local s, e = pcall(function()
             HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
@@ -2686,7 +2691,7 @@ end
 
 
 
-local function queueScriptOnTeleport()
+local function queueScriptForTeleport()
     local code = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()'
     local q = queue_on_teleport
 
@@ -2705,7 +2710,7 @@ local function queueScriptOnTeleport()
     end
 end
 
-local function smartServerHop(reason)
+local function runSmartServerHop(reason)
     local now = tick()
     library:LogStatus("server hop: " .. tostring(reason))
 
@@ -2715,21 +2720,21 @@ local function smartServerHop(reason)
     end
     LastHopTime = now
 
-    logWebhookEvent("server_hop", {
+    sendWebhookLog("server_hop", {
         reason      = reason,
         maxBounty   = LastTargetScan.maxBounty or 0,
         targetCount = LastTargetScan.count or 0,
         playerCount = #Players:GetPlayers(),
     })
 
-    queueScriptOnTeleport()
+    queueScriptForTeleport()
 
     pcall(function()
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end)
 end
 
-local function checkServerHopConditions()
+local function shouldServerHop()
     if not library or not library.flags or not library.flags.AutoServerHop then
         return
     end
@@ -2755,12 +2760,12 @@ local function checkServerHopConditions()
     end
 
     if reason then
-        smartServerHop(reason)
+        runSmartServerHop(reason)
     end
 end
 
 
-local function destroyTargetLine()
+local function destroyTargetVisual()
     if TargetLineConnection then
         TargetLineConnection:Disconnect()
         TargetLineConnection = nil
@@ -2771,9 +2776,9 @@ local function destroyTargetLine()
     end
 end
 
-local function ensureTargetLine()
+local function ensureTargetVisual()
     if not library.flags or not library.flags.ShowTargetLine then
-        destroyTargetLine()
+        destroyTargetVisual()
         return
     end
 
@@ -2792,11 +2797,11 @@ local function ensureTargetLine()
     if not TargetLineConnection then
         TargetLineConnection = RunService.RenderStepped:Connect(function()
             if not AutoArrestEnabled or not library.flags.ShowTargetLine then
-                destroyTargetLine()
+                destroyTargetVisual()
                 return
             end
 
-            local root   = getHRP()
+            local root   = getRootPart()
             local target = CurrentTarget
             local tRoot  = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
 
@@ -2820,7 +2825,7 @@ local function ensureTargetLine()
     end
 end
 
-local function saveConfig()
+local function writeConfig()
     if not writefile then return end
 
     local ok, encoded = pcall(HttpService.JSONEncode, HttpService, {
@@ -2837,7 +2842,7 @@ local function saveConfig()
     end
 end
 
-local function loadConfig()
+local function loadConfigFromFile()
     if not readfile or not isfile then return end
     if not isfile(CONFIG_FILE) then return end
 
@@ -2858,9 +2863,9 @@ local function loadConfig()
     end
 
     if library.flags.ShowTargetLine then
-        ensureTargetLine()
+        ensureTargetVisual()
     else
-        destroyTargetLine()
+        destroyTargetVisual()
     end
 end
 
@@ -2869,11 +2874,11 @@ end
 
 local EquippedToolName = nil
 
-local function unequipAllTools()
+local function unequipAllToolsNow()
     local folder = LocalPlayer:FindFirstChild("Folder")
     if not folder then return end
 
-    local function unequip(toolName)
+    local function unequipToolByName(toolName)
         local tool = folder:FindFirstChild(toolName)
         if tool then
             local remote = tool:FindFirstChild("InventoryEquipRemote")
@@ -2883,12 +2888,12 @@ local function unequipAllTools()
         end
     end
 
-    unequip("Pistol")
-    unequip("Handcuffs")
+    unequipToolByName("Pistol")
+    unequipToolByName("Handcuffs")
     EquippedToolName = nil
 end
 
-local function equipTool(toolName)
+local function equipToolByName(toolName)
     local folder = LocalPlayer:FindFirstChild("Folder")
     if not folder then return nil end
 
@@ -2922,7 +2927,7 @@ end
 
 
 
-local function arrestSequence(target)
+local function runArrestSequence(target)
     ActionInProgress = true
 
     local success = false 
@@ -2937,14 +2942,14 @@ local function arrestSequence(target)
         end
 
         local targetName = target.Name
-        local root = getHRP()
-        local hum  = getHumanoid()
+        local root = getRootPart()
+        local hum  = getCharacterHumanoid()
 
         if not root or not hum or hum.Health <= 0 then
             return
         end
 
-        if not hasPlayerEscaped(target) then
+        if not hasPlayerLeftPrison(target) then
             return
         end
 
@@ -2959,8 +2964,8 @@ local function arrestSequence(target)
         local POP_TIMEOUT = 1.5  
 
         while AutoArrestEnabled and (tick() - startTime) < chaseTimeout do
-            hum  = getHumanoid()
-            root = getHRP()
+            hum  = getCharacterHumanoid()
+            root = getRootPart()
             if not hum or not root or hum.Health <= 0 then
                 return
             end
@@ -2973,7 +2978,7 @@ local function arrestSequence(target)
                 break
             end
 
-            if not hasPlayerEscaped(target) then
+            if not hasPlayerLeftPrison(target) then
                 success = true
                 break
             end
@@ -2983,7 +2988,7 @@ local function arrestSequence(target)
                 break
             end
 
-            if isCovered(tRoot.Position, target) then
+            if isPositionUnderCover(tRoot.Position, target) then
                 break
             end
 
@@ -2993,7 +2998,7 @@ local function arrestSequence(target)
             local horizontalDist = (vehiclePosXZ - targetPosXZ).Magnitude
 
             local chaseY         = HOVER_HEIGHT
-            local playersVehicle = getPlayersVehicle(target)
+            local playersVehicle = getPlayerVehicle(target)
 
             local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
             local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
@@ -3001,7 +3006,7 @@ local function arrestSequence(target)
             if playersVehicle and playersVehicle.PrimaryPart then
                 if horizontalDist < 80 then
                     local vehPos = playersVehicle.PrimaryPart.Position
-                    local safeY  = getSafeHeight(vehPos)
+                    local safeY  = getSafeHeightAboveGround(vehPos)
                     chaseY       = math.max(vehPos.Y + DROP_OFFSET_STUDS, safeY + 5)
 
                     if tHum.Sit and not tiresPopped and not popWithVehicleStart then
@@ -3011,15 +3016,15 @@ local function arrestSequence(target)
             end
 
             local chasePos = v3new(targetPos.X, chaseY, targetPos.Z)
-            flyTowards3D(chasePos, FLY_SPEED_CAR, vehiclePart)
+            setVelocityTowards(chasePos, FLY_SPEED_CAR, vehiclePart)
 
             if horizontalDist < 30 and (tiresPopped or not tHum.Sit) then
-                killVelocity(vehiclePart)
+                resetPartVelocity(vehiclePart)
                 break
             end
 
             if popWithVehicleStart and (tick() - popWithVehicleStart) > POP_TIMEOUT then
-                killVelocity(vehiclePart)
+                resetPartVelocity(vehiclePart)
                 break
             end
 
@@ -3027,27 +3032,27 @@ local function arrestSequence(target)
         end
 
         if CurrentVehicle and CurrentVehicle.PrimaryPart then
-            killVelocity(CurrentVehicle.PrimaryPart)
+            resetPartVelocity(CurrentVehicle.PrimaryPart)
         end
 
         if CurrentVehicle then
             ExitedCarRef = CurrentVehicle
         end
 
-        exitVehicleRoutine()
+        exitVehicleFlow()
         task.wait(0.2)
 
-        root = getHRP()
+        root = getRootPart()
         if root then
-            killVelocity(root)
+            resetPartVelocity(root)
         end
 
         local chaseStart2   = tick()
         local chaseTimeout2 = 15
 
         while AutoArrestEnabled and (tick() - chaseStart2) < chaseTimeout2 do
-            hum  = getHumanoid()
-            root = getHRP()
+            hum  = getCharacterHumanoid()
+            root = getRootPart()
             if not hum or not root or hum.Health <= 0 then
                 return
             end
@@ -3060,28 +3065,28 @@ local function arrestSequence(target)
                 break
             end
 
-            if not hasPlayerEscaped(target) then
+            if not hasPlayerLeftPrison(target) then
                 success = true
                 break
             end
 
             local targetPos = tRoot.Position
-            local safeY     = getSafeHeight(targetPos)
+            local safeY     = getSafeHeightAboveGround(targetPos)
             local chaseY    = math.max(targetPos.Y + 3, safeY + 3)
             local chasePos  = v3new(targetPos.X, chaseY, targetPos.Z)
 
-            flySmoothFoot(chasePos, root)
+            stepTowardsOnFoot(chasePos, root)
 
             local dist   = (root.Position - targetPos).Magnitude
             local seated = tHum.Sit
 
             if seated then
-                local playersVehicle = getPlayersVehicle(target)
+                local playersVehicle = getPlayerVehicle(target)
                 local tireHealth     = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
                 local tiresPopped    = (tireHealth ~= nil and tireHealth <= 0)
 
                 if tHum.Sit and playersVehicle and not tiresPopped then
-                    local pistol      = equipTool("Pistol")
+                    local pistol      = equipToolByName("Pistol")
                     local popTiresKey = KeyMap[POP_TIRES_STABLE_KEY]
                     library:LogStatus("Popping tires / ejecting vehicle for: " .. targetNameForLog)
 
@@ -3092,14 +3097,14 @@ local function arrestSequence(target)
 
                 local ejectKeyUuid = KeyMap[VEHICLE_EJECT_STABLE_KEY]
                 if ejectKeyUuid then
-                    local veh = getPlayersVehicle(target)
+                    local veh = getPlayerVehicle(target)
                     if veh then
                         Remote:FireServer(ejectKeyUuid, veh)
                     end
                 end
             else
                 if dist <= ARREST_CHASE_RANGE then
-                    local cuffs         = equipTool("Handcuffs")
+                    local cuffs         = equipToolByName("Handcuffs")
                     local arrestKeyUuid = KeyMap[ARREST_STABLE_KEY]
 
                     if cuffs and arrestKeyUuid then
@@ -3115,17 +3120,17 @@ local function arrestSequence(target)
     end)
 
     if not ok then
-        warn("arrestSequence error:", err)
-        logWebhookEvent("error", tostring(err))
+        warn("runArrestSequence error:", err)
+        sendWebhookLog("error", tostring(err))
     end
 
-    resetSilentAim()
+    disableSilentAimHooks()
 
-    unequipAllTools()
+    unequipAllToolsNow()
 
-    local root2 = getHRP()
+    local root2 = getRootPart()
     if root2 then
-        safeVerticalTeleport(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
+        snapVerticalPosition(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
     end
 
     ActionInProgress = false
@@ -3137,9 +3142,9 @@ local function arrestSequence(target)
     end
 
     if success and targetNameForLog then
-        logWebhookEvent("arrest", {
+        sendWebhookLog("arrest", {
             target = targetNameForLog,
-            bounty = getPlayerBounty(targetNameForLog),
+            bounty = getPlayerBountyAmount(targetNameForLog),
             jobId  = game.JobId,
         })
     end
@@ -3148,12 +3153,12 @@ local function arrestSequence(target)
 end
 
 
-local function MainLoop()
+local function autoArrestMainLoop()
     if not AutoArrestEnabled then return end
     if ActionInProgress or IsExecutingSpawnPath then return end
 
-    local hum  = getHumanoid()
-    local root = getHRP()
+    local hum  = getCharacterHumanoid()
+    local root = getRootPart()
 
     if not root or not hum or hum.Health <= 0 then
         ActionInProgress       = false
@@ -3166,11 +3171,11 @@ local function MainLoop()
         SelfCoveredStartTime   = nil
         TargetCoveredStartTime = nil
         CurrentTarget          = nil
-        destroyTargetLine()
+        destroyTargetVisual()
         return
     end
 
-    cleanupState()
+    resetAutoArrestState()
 
     if VehicleRetryCount >= MAX_VEHICLE_RETRIES then
         task.wait(RETRY_COOLDOWN)
@@ -3184,7 +3189,7 @@ local function MainLoop()
         return
     end
 
-    local target = getBestTarget()
+    local target = selectBestTarget()
     if target then
         LastTargetSeenTime = tick()
     end
@@ -3195,7 +3200,7 @@ local function MainLoop()
             library:LogStatus(string.format(
                 "Targeting player: %s (Bounty: %d)",
                 target.Name,
-                getPlayerBounty(target.Name)
+                getPlayerBountyAmount(target.Name)
             ))
         else
             library:LogStatus("No valid targets found.")
@@ -3206,25 +3211,25 @@ local function MainLoop()
 
 
     if library.flags.ShowTargetLine and target then
-        ensureTargetLine()
+        ensureTargetVisual()
     end
 
-    checkServerHopConditions()
+    shouldServerHop()
 
     local NO_CAR_TARGET_DISTANCE = tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS
     local neverUseVehicle        = library.flags.NeverUseVehicle == true
 
-    hum  = getHumanoid()
-    root = getHRP()
+    hum  = getCharacterHumanoid()
+    root = getRootPart()
     if not hum or not root or hum.Health <= 0 then return end
 
     local inVehicle = hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent
 
     if neverUseVehicle and inVehicle then
-        exitVehicleRoutine()
+        exitVehicleFlow()
         inVehicle = false
-        hum  = getHumanoid()
-        root = getHRP()
+        hum  = getCharacterHumanoid()
+        root = getRootPart()
         if not hum or not root or hum.Health <= 0 then return end
     end
 
@@ -3235,30 +3240,30 @@ local function MainLoop()
                 local dist = (root.Position - tRoot.Position).Magnitude
 
                 if dist <= NO_CAR_TARGET_DISTANCE then
-                    arrestSequence(target)
+                    runArrestSequence(target)
                     return
                 end
             end
         end
 
         if not neverUseVehicle then
-            local veh = getClosestVehicle()
+            local veh = getClosestAllowedVehicle()
             if veh then
-                local successEnter = enterVehicleRoutine(veh)
+                local successEnter = enterVehicleFlow(veh)
                 if not successEnter then
                     VehicleRetryCount += 1
                     task.wait(RETRY_COOLDOWN)
                 end
             else
-                local r = getHRP()
+                local r = getRootPart()
                 if r and r.Position.Y < HOVER_HEIGHT then
-                    safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
+                    snapVerticalPosition(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
                 end
             end
         else
-            local r = getHRP()
+            local r = getRootPart()
             if r and r.Position.Y < HOVER_HEIGHT then
-                safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
+                snapVerticalPosition(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
             end
         end
 
@@ -3266,9 +3271,9 @@ local function MainLoop()
     end
 
     if target then
-        arrestSequence(target)
+        runArrestSequence(target)
     else
-        root = getHRP()
+        root = getRootPart()
         if not root then return end
 
         local prison = v3new(-1140, HOVER_HEIGHT, -1500)
@@ -3278,14 +3283,14 @@ local function MainLoop()
         local distBank   = (root.Position - bank).Magnitude
 
         local dest = (distPrison < distBank) and bank or prison
-        flyToLocation(dest, true)
+        moveToWorldPosition(dest, true)
     end
 end
 
 
 
 
-local function ToggleAutoArrest()
+local function toggleAutoArrest()
     AutoArrestEnabled = not AutoArrestEnabled
     library:LogStatus("Auto-Arrest " .. (AutoArrestEnabled and "ENABLED" or "DISABLED"))
 
@@ -3304,35 +3309,35 @@ local function ToggleAutoArrest()
         TargetCoveredStartTime= nil
         StuckCheckPosition    = nil
         lastVehicleShotTime   = 0
-        resetSilentAim()
+        disableSilentAimHooks()
 
         if library.flags.ShowTargetLine then
-            ensureTargetLine()
+            ensureTargetVisual()
         end
 
 
-        local root = getHRP()
+        local root = getRootPart()
         if root then
-            killVelocity(root)
+            resetPartVelocity(root)
         end
 
-        startCoverageMonitor()
+        startCoverCheckLoop()
 
-        if amICovered() then
-            local spawnPath = findSpawnPath()
+        if isLocalPlayerUnderCover() then
+            local spawnPath = getNearestSpawnPath()
             if spawnPath then
-                executeSpawnPath(spawnPath)
+                runSpawnPathWaypoints(spawnPath)
                 task.wait(1)
             end
         end
 
-        local root2 = getHRP()
+        local root2 = getRootPart()
         if root2 and root2.Position.Y < HOVER_HEIGHT then
-            safeVerticalTeleport(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
+            snapVerticalPosition(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
         end
 
         if not MainLoopConnection then
-            MainLoopConnection = RunService.Heartbeat:Connect(MainLoop)
+            MainLoopConnection = RunService.Heartbeat:Connect(autoArrestMainLoop)
         end
     else
         print("Auto-Arrest DISABLED")
@@ -3342,24 +3347,24 @@ local function ToggleAutoArrest()
             MainLoopConnection = nil
         end
 
-        stopCoverageMonitor()
+        stopCoverCheckLoop()
 
         CurrentTarget = nil
-        destroyTargetLine()
-        unequipAllTools()
+        destroyTargetVisual()
+        unequipAllToolsNow()
 
 
         AutoArrestEnabled     = false
         ActionInProgress      = false
         IsExecutingSpawnPath  = false
 
-        resetSilentAim()
+        disableSilentAimHooks()
         shootTarget = nil
 
-        local root = getHRP()
-        if root then killVelocity(root) end
+        local root = getRootPart()
+        if root then resetPartVelocity(root) end
         if CurrentVehicle and CurrentVehicle.PrimaryPart then
-            killVelocity(CurrentVehicle.PrimaryPart)
+            resetPartVelocity(CurrentVehicle.PrimaryPart)
         end
 
         CurrentVehicle        = nil
@@ -3402,107 +3407,272 @@ task.spawn(function()
 end)
 
 
-pcall(loadConfig)
 
-local Lib = library:Create("Serenity | Jailbreak")
+local function Boot()
+    Serenity.UI     = Serenity.UI     or {}
+    Serenity.Config = Serenity.Config or {}
 
-local Tab = Lib:Tab("Main")
+    Serenity.UI.Library   = library
+    Serenity.Config.Theme = Serenity.Config.Theme or theme
 
-local StatusTab = Lib:Tab("Status")
+    pcall(loadConfigFromFile)
 
-local StatusConsole = StatusTab:Console()
-library.statusConsole = StatusConsole
-library:LogStatus("Status console initialized.")
+    local Lib = library:Create("Serenity | Jailbreak")
 
+    local Tab       = Lib:Tab("Main")
+    local StatusTab = Lib:Tab("Status")
 
-local initialToggle = library.flags.Toggle
-if initialToggle == nil then
-    initialToggle = true
+    local StatusConsole = StatusTab:Console()
+    library.statusConsole = StatusConsole
+    library:LogStatus("Status console initialized.")
+
+    local initialToggle = library.flags.Toggle
+    if initialToggle == nil then
+        initialToggle = true
+    end
+
+    Tab:Toggle("Toggle Arrest", "Toggle", initialToggle, function(state)
+        toggleAutoArrest()
+        writeConfig()
+    end)
+
+    local SettingsTab = Lib:Tab("Settings")
+
+    SettingsTab:Slider("Min Bounty", "MinBounty", tonumber(library.flags.MinBounty) or 0, 0, 20000, false, function(val)
+        library.flags.MinBounty = val
+        writeConfig()
+    end)
+
+    SettingsTab:Dropdown(
+        "Target Priority",
+        "TargetPriorityMode",
+        {"Default", "Highest Bounty", "Closest", "Smoothest"},
+        false,
+        function(mode)
+            library.flags.TargetPriorityMode = mode
+            writeConfig()
+        end
+    )
+
+    SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
+        library.flags.AutoServerHop = state
+        writeConfig()
+        if state then
+            LastTargetSeenTime = tick()
+        end
+    end)
+
+    SettingsTab:Slider("Hop: No Targets Time (s)", "HopNoTargetsTime", tonumber(library.flags.HopNoTargetsTime) or DEFAULT_HOP_NO_TARGETS, 10, 600, false, function(val)
+        library.flags.HopNoTargetsTime = val
+        writeConfig()
+    end)
+
+    SettingsTab:Slider("Hop: Max Bounty Threshold", "HopMaxBounty", tonumber(library.flags.HopMaxBounty) or DEFAULT_HOP_MAX_BOUNTY, 0, 20000, false, function(val)
+        library.flags.HopMaxBounty = val
+        writeConfig()
+    end)
+
+    SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.flags.HopMinPlayers) or DEFAULT_HOP_MIN_PLAYERS, 0, 30, false, function(val)
+        library.flags.HopMinPlayers = val
+        writeConfig()
+    end)
+
+    SettingsTab:Toggle("Send Logs to Webhook", "LogToWebhook", library.flags.LogToWebhook or false, function(state)
+        library.flags.LogToWebhook = state
+        writeConfig()
+    end)
+
+    SettingsTab:TextBox("Webhook URL", "WebhookURL", library.flags.WebhookURL or "", function(text)
+        library.flags.WebhookURL = text
+        writeConfig()
+    end)
+
+    SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTargetLine or false, function(state)
+        library.flags.ShowTargetLine = state
+        writeConfig()
+        if state then
+            ensureTargetVisual()
+        else
+            destroyTargetVisual()
+        end
+    end)
+
+    SettingsTab:Button("Save Config", function()
+        writeConfig()
+    end)
+
+    SettingsTab:Button("Load Config", function()
+        loadConfigFromFile()
+    end)
+
+    SettingsTab:Button("Destroy UI", function()
+        if _G.SerenityDestroyUI then
+            _G.SerenityDestroyUI()
+        end
+    end)
+
+    SettingsTab:KeyBind("Toggle UI", "RightShift", function()
+        if _G.SerenityToggleUI then
+            _G.SerenityToggleUI()
+        end
+    end)
+
+    Serenity.UI.Instance      = Lib
+    Serenity.UI.MainTab       = Tab
+    Serenity.UI.StatusTab     = StatusTab
+    Serenity.UI.SettingsTab   = SettingsTab
+    Serenity.UI.StatusConsole = StatusConsole
 end
 
-Tab:Toggle("Toggle Arrest", "Toggle", initialToggle, function(state)
-    ToggleAutoArrest()
-    saveConfig()
-end)
+Boot()
 
+Serenity.Config = Serenity.Config or {}
+Serenity.Config.Theme = Serenity.Config.Theme or theme
+Serenity.Config.Files = {
+    CONFIG_FILE = CONFIG_FILE,
+}
+Serenity.Config.Targeting = {
+    DEFAULT_MIN_BOUNTY      = DEFAULT_MIN_BOUNTY,
+    DEFAULT_NO_CAR_RADIUS   = DEFAULT_NO_CAR_RADIUS,
+    DEFAULT_HOP_NO_TARGETS  = DEFAULT_HOP_NO_TARGETS,
+    DEFAULT_HOP_MAX_BOUNTY  = DEFAULT_HOP_MAX_BOUNTY,
+    DEFAULT_HOP_MIN_PLAYERS = DEFAULT_HOP_MIN_PLAYERS,
+    HOP_COOLDOWN            = HOP_COOLDOWN,
+}
+Serenity.Config.Flight = {
+    HOVER_HEIGHT            = HOVER_HEIGHT,
+    MIN_HEIGHT_ABOVE_GROUND = MIN_HEIGHT_ABOVE_GROUND,
+    DROP_OFFSET_STUDS       = DROP_OFFSET_STUDS,
+    FLY_SPEED_CAR           = FLY_SPEED_CAR,
+    FLY_SPEED_FOOT          = FLY_SPEED_FOOT,
+    ROOF_RAYCAST_HEIGHT     = ROOF_RAYCAST_HEIGHT,
+    JAIL_TELEPORT_DIST      = JAIL_TELEPORT_DIST,
+    TELEPORT_JUMP_THRESHOLD = TELEPORT_JUMP_THRESHOLD,
+    MAX_HORIZONTAL_SPEED    = MAX_HORIZONTAL_SPEED,
+    HOVER_ADJUST_SPEED      = HOVER_ADJUST_SPEED,
+    VERTICAL_SNAP_THRESHOLD = VERTICAL_SNAP_THRESHOLD,
+    FOOT_SPEED              = FOOT_SPEED,
+    FOOT_LERP_ALPHA         = FOOT_LERP_ALPHA,
+    FOOT_MAX_VERTICAL       = FOOT_MAX_VERTICAL,
+    FOOT_HOVER_OFFSET       = FOOT_HOVER_OFFSET,
+}
+Serenity.Config.Retry = {
+    MAX_VEHICLE_RETRIES = MAX_VEHICLE_RETRIES,
+    MAX_ARREST_RETRIES  = MAX_ARREST_RETRIES,
+    STUCK_TIMEOUT       = STUCK_TIMEOUT,
+    RETRY_COOLDOWN      = RETRY_COOLDOWN,
+}
+Serenity.Config.Coverage = {
+    COVERAGE_CHECK_INTERVAL = COVERAGE_CHECK_INTERVAL,
+    MAX_COVERED_TIME        = MAX_COVERED_TIME,
+}
+Serenity.Config.Combat = {
+    ARREST_CHASE_RANGE = ARREST_CHASE_RANGE,
+    ARREST_LOOP_DELAY  = ARREST_LOOP_DELAY,
+    SHOOT_COOLDOWN     = SHOOT_COOLDOWN,
+}
+Serenity.Config.Vehicles = {
+    ALLOWED_VEHICLES     = ALLOWED_VEHICLES,
+    SPAWN_PATHS          = SPAWN_PATHS,
+    SPAWN_PATH_TOLERANCE = SPAWN_PATH_TOLERANCE,
+}
 
-local SettingsTab = Lib:Tab("Settings")
+Serenity.Services = {
+    Players           = Players,
+    RunService        = RunService,
+    Workspace         = Workspace,
+    ReplicatedStorage = ReplicatedStorage,
+    HttpService       = HttpService,
+    TeleportService   = TeleportService,
+}
 
-SettingsTab:Slider("Min Bounty", "MinBounty", tonumber(library.flags.MinBounty) or 0, 0, 20000, false, function(val)
-    library.flags.MinBounty = val
-    saveConfig()
-end)
+Serenity.Util = {
+    GetHRP                    = getRootPart,
+    GetHumanoid               = getCharacterHumanoid,
+    KillVelocity              = resetPartVelocity,
+    GetBountyData             = readBountyData,
+    GetPlayerBounty           = getPlayerBountyAmount,
+    HasPlayerEscaped          = hasPlayerLeftPrison,
+    GetSafeHeight             = getSafeHeightAboveGround,
+    IsCovered                 = isPositionUnderCover,
+    AmICovered                = isLocalPlayerUnderCover,
+    FlyTowards3D              = setVelocityTowards,
+    FindSpawnPath             = getNearestSpawnPath,
+    SafeVerticalTeleport      = snapVerticalPosition,
+    ExecuteSpawnPath          = runSpawnPathWaypoints,
+    KillSelf                  = resetLocalCharacter,
+    FlyToLocation             = moveToWorldPosition,
+    FlySmoothFoot             = stepTowardsOnFoot,
+    CleanupState              = resetAutoArrestState,
+    GetClosestVehicleToPlayer = getClosestVehicleNearPlayer,
+    GetTargetVehiclePart      = getVehicleTargetPart,
+    GetClosestVehicle         = getClosestAllowedVehicle,
+    EnsureTargetLine          = ensureTargetVisual,
+    DestroyTargetLine         = destroyTargetVisual,
+}
 
-SettingsTab:Dropdown("Target Priority", "TargetPriorityMode",
-    {"Default", "Highest Bounty", "Closest", "Smoothest"},
-    false,
-    function(mode)
-        library.flags.TargetPriorityMode = mode
-        saveConfig()
+Serenity.Network = {
+    Remote   = Remote,
+    KeyMap   = KeyMap,
+    StableKeys = {
+        POP_TIRES     = POP_TIRES_STABLE_KEY,
+        JOIN_TEAM     = JOIN_TEAM_STABLE_KEY,
+        ARREST        = ARREST_STABLE_KEY,
+        VEHICLE_ENTRY = VEHICLE_ENTRY_STABLE_KEY,
+        VEHICLE_EXIT  = VEHICLE_EXIT_STABLE_KEY,
+        VEHICLE_EJECT = VEHICLE_EJECT_STABLE_KEY,
+        REDEEM_CODE   = redeemCode,
+    },
+    LogWebhookEvent        = sendWebhookLog,
+    SmartServerHop         = runSmartServerHop,
+    QueueScriptOnTeleport  = queueScriptForTeleport,
+}
+
+Serenity.AutoArrest = {
+    Toggle               = toggleAutoArrest,
+    autoArrestMainLoop             = autoArrestMainLoop,
+    StartCoverageMonitor = startCoverCheckLoop,
+    StopCoverageMonitor  = stopCoverCheckLoop,
+}
+
+function Serenity.AutoArrest.Enable()
+    if not AutoArrestEnabled then
+        toggleAutoArrest()
     end
-)
+end
 
-
-SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
-    library.flags.AutoServerHop = state
-    saveConfig()
-    if state then
-        LastTargetSeenTime = tick()
+function Serenity.AutoArrest.Disable()
+    if AutoArrestEnabled then
+        toggleAutoArrest()
     end
-end)
+end
 
-SettingsTab:Slider("Hop: No Targets Time (s)", "HopNoTargetsTime", tonumber(library.flags.HopNoTargetsTime) or DEFAULT_HOP_NO_TARGETS, 10, 600, false, function(val)
-    library.flags.HopNoTargetsTime = val
-    saveConfig()
-end)
+function Serenity.GetState()
+    return {
+        AutoArrestEnabled    = AutoArrestEnabled,
+        CurrentTarget        = CurrentTarget,
+        CurrentVehicle       = CurrentVehicle,
+        LastTargetScan       = LastTargetScan,
+        LastTargetSeenTime   = LastTargetSeenTime,
+        LastHopTime          = LastHopTime,
+        LastHopCheckTime     = LastHopCheckTime,
+        CoverageThreadActive = CoverageThread ~= nil,
+    }
+end
 
-SettingsTab:Slider("Hop: Max Bounty Threshold", "HopMaxBounty", tonumber(library.flags.HopMaxBounty) or DEFAULT_HOP_MAX_BOUNTY, 0, 20000, false, function(val)
-    library.flags.HopMaxBounty = val
-    saveConfig()
-end)
-
-SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.flags.HopMinPlayers) or DEFAULT_HOP_MIN_PLAYERS, 0, 30, false, function(val)
-    library.flags.HopMinPlayers = val
-    saveConfig()
-end)
-
-SettingsTab:Toggle("Send Logs to Webhook", "LogToWebhook", library.flags.LogToWebhook or false, function(state)
-    library.flags.LogToWebhook = state
-    saveConfig()
-end)
-
-SettingsTab:TextBox("Webhook URL", "WebhookURL", library.flags.WebhookURL or "", function(text)
-    library.flags.WebhookURL = text
-    saveConfig()
-end)
-
-SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTargetLine or false, function(state)
-    library.flags.ShowTargetLine = state
-    saveConfig()
-    if state then
-        ensureTargetLine()
-    else
-        destroyTargetLine()
-    end
-end)
-
-SettingsTab:Button("Save Config", function()
-    saveConfig()
-end)
-
-SettingsTab:Button("Load Config", function()
-    loadConfig()
-end)
-
-SettingsTab:Button("Destroy UI", function()
-    if _G.SerenityDestroyUI then
-        _G.SerenityDestroyUI()
-    end
-end)
-
-SettingsTab:KeyBind("Toggle UI", "RightShift", function()
+function Serenity.toggleMainGui()
     if _G.SerenityToggleUI then
         _G.SerenityToggleUI()
     end
-end)
+end
 
+function Serenity.destroyMainGui()
+    if _G.SerenityDestroyUI then
+        _G.SerenityDestroyUI()
+    end
+end
+
+Serenity.SaveConfig = writeConfig
+Serenity.LoadConfig = loadConfigFromFile
+
+return Serenity
