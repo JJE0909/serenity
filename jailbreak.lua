@@ -7,11 +7,9 @@ local toggled = false
 local mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local theme = {
-    -- main surfaces
     main      = Color3.fromRGB(12, 16, 26),   
     secondary = Color3.fromRGB(18, 24, 38),  
 
-    -- text & accents
     accent    = Color3.fromRGB(225, 235, 255), 
     accent2   = Color3.fromRGB(36, 99, 210),  
     accent3   = Color3.fromRGB(0, 186, 255),  
@@ -217,7 +215,6 @@ function library:Create(title)
     MainFrame.Size = UDim2.new(0, 587, 0, 366)
     MainFrame.BorderSizePixel = 0
 
-    -- subtle border around the main card
     local MainStroke = Instance.new("UIStroke")
     MainStroke.Color = theme.outline
     MainStroke.Thickness = 1
@@ -351,7 +348,7 @@ function library:Create(title)
         TabOpen.Name = "TabOpen"
         TabOpen.Parent = TabContainer
         TabOpen.BackgroundColor3 = theme.secondary
-        TabOpen.BackgroundTransparency = 0   -- make it visible
+        TabOpen.BackgroundTransparency = 0 
         TabOpen.BorderSizePixel = 0
         TabOpen.Size = UDim2.new(0, 116, 0, 30)
         TabOpen.AutoButtonColor = false
@@ -671,8 +668,6 @@ function library:Create(title)
             assert(type(name) == "string", "Toggle name must be a string")
             assert(type(flag) == "string", "Toggle flag must be a string")
 
-            -- Do NOT force‑override any pre‑loaded config here.
-            -- Just ensure there is *some* value.
             if library.flags[flag] == nil then
                 library.flags[flag] = val or false
             end
@@ -739,12 +734,10 @@ function library:Create(title)
             local funcs = {}
 
             function funcs:SetState(state, force)
-                -- nil = toggle current
                 if state == nil then
                     state = not library.flags[flag]
                 end
 
-                -- allow forcing on init (so default = true actually animates + calls callback)
                 if not force and library.flags[flag] == state then
                     return
                 end
@@ -775,15 +768,13 @@ function library:Create(title)
                 task.spawn(function()
                     Ripple(ToggleBtn)
                 end)
-                funcs:SetState(nil) -- toggle
+                funcs:SetState(nil) 
             end)
 
-            -- Initial state: use already‑loaded config if present, otherwise `val`
             local initial = library.flags[flag]
             if initial == nil then
                 initial = val or false
             end
-            -- force = true so we ALWAYS animate & call callback once on startup if true
             funcs:SetState(initial, true)
 
             return funcs
@@ -1443,32 +1434,28 @@ local DEFAULT_MIN_BOUNTY       = 0
 local LastLoggedTarget         = nil
 
 
--- target stats (used for smart hop)
 local LastTargetScan           = { count = 0, maxBounty = 0, time = 0 }
 local LastTargetSeenTime       = tick()
 local LastHopTime              = 0
 local LastHopCheckTime         = 0
-local HOP_COOLDOWN             = 30 -- seconds between hops
+local HOP_COOLDOWN             = 30 
 
--- visual ESP for current target
 local CurrentTarget            = nil
 local TargetLinePart           = nil
 local TargetLineConnection     = nil
 
 
 local DEFAULT_NO_CAR_RADIUS    = 400
-local DEFAULT_HOP_NO_TARGETS   = 180 -- seconds
-local DEFAULT_HOP_MAX_BOUNTY   = 0   -- 0 = disabled
-local DEFAULT_HOP_MIN_PLAYERS  = 0   -- 0 = disabled
+local DEFAULT_HOP_NO_TARGETS   = 180 
+local DEFAULT_HOP_MAX_BOUNTY   = 0 
+local DEFAULT_HOP_MIN_PLAYERS  = 0
 
--- target stats (used for smart hop)
 local LastTargetScan           = { count = 0, maxBounty = 0, time = 0 }
 local LastTargetSeenTime       = tick()
 local LastHopTime              = 0
 local LastHopCheckTime         = 0
-local HOP_COOLDOWN             = 30 -- seconds between hops
+local HOP_COOLDOWN             = 30
 
--- visual ESP for current target
 local CurrentTarget            = nil
 local TargetLinePart           = nil
 local TargetLineConnection     = nil
@@ -1969,16 +1956,14 @@ local function flyToLocation(targetPos, isCar)
 end
 
 
--- smooth on-foot movement (~100 studs/sec, keeps hover just above ground)
 local FOOT_SPEED        = 100
 local FOOT_LERP_ALPHA   = 0.7
 local FOOT_MAX_VERTICAL = 120
-local FOOT_HOVER_OFFSET = 3   -- keep 3 studs off the ground
+local FOOT_HOVER_OFFSET = 3
 
 local function flySmoothFoot(targetPos, root)
     if not root or not root.Parent then return end
 
-    -- keep slight lift so we don't get ground-friction slowdown
     local safeY = getSafeHeight(targetPos)
     targetPos = Vector3.new(targetPos.X, math.max(targetPos.Y + FOOT_HOVER_OFFSET, safeY + FOOT_HOVER_OFFSET), targetPos.Z)
 
@@ -2290,7 +2275,6 @@ local function getBestTarget()
             if tRoot and tHum and hasPlayerEscaped(p) then
                 local currentPos = tRoot.Position
 
-                -- basic anti‑tp + "smoothness" (approx speed)
                 local lastData    = TargetPositionHistory[p]
                 local isTeleport  = false
                 local smoothness  = math.huge
@@ -2346,7 +2330,6 @@ local function getBestTarget()
     end
 
     local function defaultSort(a, b)
-        -- your original logic: bounty -> criminals first -> distance
         if a.bounty ~= b.bounty then
             return a.bounty > b.bounty
         end
@@ -2375,7 +2358,6 @@ local function getBestTarget()
             return defaultSort(a, b)
         end)
     else
-        -- "Default"
         table.sort(validTargets, defaultSort)
     end
 
@@ -2541,7 +2523,6 @@ local function startCoverageMonitor()
                 continue
             end
 
-            -- only care about cover while we're actively doing something
             if not ActionInProgress then
                 SelfCoveredStartTime   = nil
                 TargetCoveredStartTime = nil
@@ -2568,7 +2549,6 @@ local function startCoverageMonitor()
                     SelfCoveredStartTime = tick()
                 end
 
-                -- under-roof + below hover for 5s -> hard reset
                 local underRoof = (root.Position.Y < (HOVER_HEIGHT - 20))
                 if underRoof then
                     if not UnderRoofStartTime then
@@ -2626,7 +2606,6 @@ end
 
 
 
--- // WEBHOOK LOGGER
 
 local function logWebhookEvent(eventType, details)
     if not library or not library.flags then return end
@@ -2635,7 +2614,6 @@ local function logWebhookEvent(eventType, details)
     local url = library.flags.WebhookURL
     if type(url) ~= "string" or url == "" then return end
 
-    -- build message text
     local text = ""
 
     if type(details) == "string" then
@@ -2663,7 +2641,6 @@ local function logWebhookEvent(eventType, details)
         return
     end
 
-    -- prefer exploit HTTP; fallback to HttpService:PostAsync if it works
     local requestFunc = nil
 
     if syn and syn.request then
@@ -2697,8 +2674,6 @@ local function logWebhookEvent(eventType, details)
 
     local ok, err = doExploitRequest()
     if not ok then
-        -- last-chance fallback: try HttpService:PostAsync, but ignore
-        -- "http requests can only be executed by server" errors
         local s, e = pcall(function()
             HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
         end)
@@ -2710,7 +2685,6 @@ local function logWebhookEvent(eventType, details)
 end
 
 
--- // QUEUE SCRIPT ON TELEPORT
 
 local function queueScriptOnTeleport()
     local code = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()'
@@ -2785,7 +2759,6 @@ local function checkServerHopConditions()
     end
 end
 
--- // TARGET LINE (ESP ONLY FOR CURRENT TARGET)
 
 local function destroyTargetLine()
     if TargetLineConnection then
@@ -2861,8 +2834,6 @@ local function saveConfig()
     local ok2, err = pcall(writefile, CONFIG_FILE, encoded)
     if not ok2 then
         warn("[Serenity] Failed to write config:", err)
-    else
-        -- print("[Serenity] Saved config to", CONFIG_FILE)
     end
 end
 
@@ -2885,8 +2856,6 @@ local function loadConfig()
     for k, v in pairs(decoded.flags) do
         library.flags[k] = v
     end
-
-    -- print("[Serenity] Loaded config from", CONFIG_FILE)
 
     if library.flags.ShowTargetLine then
         ensureTargetLine()
@@ -2929,12 +2898,10 @@ local function equipTool(toolName)
     local remote = tool:FindFirstChild("InventoryEquipRemote")
     if not remote then return nil end
 
-    -- already equipped (from our tracking) → do nothing
     if EquippedToolName == toolName then
         return tool
     end
 
-    -- unequip old tool if different
     if EquippedToolName and EquippedToolName ~= toolName then
         local oldTool = folder:FindFirstChild(EquippedToolName)
         if oldTool then
@@ -2981,7 +2948,6 @@ local function arrestSequence(target)
             return
         end
 
-        -- must be in vehicle at start (your existing logic)
         if not (hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent) then
             return
         end
@@ -2992,7 +2958,6 @@ local function arrestSequence(target)
         local popWithVehicleStart = nil
         local POP_TIMEOUT = 1.5  
 
-        -- ===== CAR PHASE (unchanged logic) =====
         while AutoArrestEnabled and (tick() - startTime) < chaseTimeout do
             hum  = getHumanoid()
             root = getHRP()
@@ -3069,17 +3034,14 @@ local function arrestSequence(target)
             ExitedCarRef = CurrentVehicle
         end
 
-        -- exit the vehicle
         exitVehicleRoutine()
         task.wait(0.2)
 
-        -- IMPORTANT: clear player velocity right after leaving the car
         root = getHRP()
         if root then
             killVelocity(root)
         end
 
-        -- ===== ON-FOOT PHASE =====
         local chaseStart2   = tick()
         local chaseTimeout2 = 15
 
@@ -3108,14 +3070,12 @@ local function arrestSequence(target)
             local chaseY    = math.max(targetPos.Y + 3, safeY + 3)
             local chasePos  = v3new(targetPos.X, chaseY, targetPos.Z)
 
-            -- NEW: smoother, lerped on-foot flight
             flySmoothFoot(chasePos, root)
 
             local dist   = (root.Position - targetPos).Magnitude
             local seated = tHum.Sit
 
             if seated then
-                -- seated: POP TIRES using pistol
                 local playersVehicle = getPlayersVehicle(target)
                 local tireHealth     = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
                 local tiresPopped    = (tireHealth ~= nil and tireHealth <= 0)
@@ -3138,7 +3098,6 @@ local function arrestSequence(target)
                     end
                 end
             else
-                -- NOT seated: attempt arrest – ALWAYS force equip cuffs
                 if dist <= ARREST_CHASE_RANGE then
                     local cuffs         = equipTool("Handcuffs")
                     local arrestKeyUuid = KeyMap[ARREST_STABLE_KEY]
@@ -3162,7 +3121,6 @@ local function arrestSequence(target)
 
     resetSilentAim()
 
-    -- unified cleanup: unequip everything
     unequipAllTools()
 
     local root2 = getHRP()
@@ -3226,7 +3184,6 @@ local function MainLoop()
         return
     end
 
-    -- get target & update stats
     local target = getBestTarget()
     if target then
         LastTargetSeenTime = tick()
@@ -3252,7 +3209,6 @@ local function MainLoop()
         ensureTargetLine()
     end
 
-    -- smart server hop based on current scan
     checkServerHopConditions()
 
     local NO_CAR_TARGET_DISTANCE = tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS
@@ -3264,7 +3220,6 @@ local function MainLoop()
 
     local inVehicle = hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent
 
-    -- if user enabled "never use vehicle", auto exit
     if neverUseVehicle and inVehicle then
         exitVehicleRoutine()
         inVehicle = false
@@ -3274,7 +3229,6 @@ local function MainLoop()
     end
 
     if not inVehicle then
-        -- if target is close enough, just run arrestSequence (your logic handles how)
         if target and target.Character then
             local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
             if tRoot then
@@ -3287,7 +3241,6 @@ local function MainLoop()
             end
         end
 
-        -- otherwise, grab a vehicle unless disabled
         if not neverUseVehicle then
             local veh = getClosestVehicle()
             if veh then
@@ -3303,7 +3256,6 @@ local function MainLoop()
                 end
             end
         else
-            -- never use vehicle: just keep yourself at hover height when idle
             local r = getHRP()
             if r and r.Position.Y < HOVER_HEIGHT then
                 safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
