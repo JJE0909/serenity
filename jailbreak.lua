@@ -3490,21 +3490,6 @@ SettingsTab:Dropdown("Target Priority", "TargetPriorityMode",
     end
 )
 
-SettingsTab:Slider("No-Car Radius", "NoCarRadius", tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS, 0, 3000, false, function(val)
-    library.flags.NoCarRadius = val
-    saveConfig()
-end)
-
-SettingsTab:Toggle("Never Use Vehicle", "NeverUseVehicle", library.flags.NeverUseVehicle or false, function(state)
-    library.flags.NeverUseVehicle = state
-    saveConfig()
-    if state then
-        local hum = getHumanoid()
-        if hum and hum.Sit and CurrentVehicle then
-            exitVehicleRoutine()
-        end
-    end
-end)
 
 SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
     library.flags.AutoServerHop = state
@@ -3519,12 +3504,12 @@ SettingsTab:Slider("Hop: No Targets Time (s)", "HopNoTargetsTime", tonumber(libr
     saveConfig()
 end)
 
-SettingsTab:Slider("Hop: Max Bounty Threshold", "HopMaxBounty", tonumber(library.flags.HopMaxBounty) or DEFAULT_HOP_MAX_BOUNTY, 0, 50000, false, function(val)
+SettingsTab:Slider("Hop: Max Bounty Threshold", "HopMaxBounty", tonumber(library.flags.HopMaxBounty) or DEFAULT_HOP_MAX_BOUNTY, 0, 20000, false, function(val)
     library.flags.HopMaxBounty = val
     saveConfig()
 end)
 
-SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.flags.HopMinPlayers) or DEFAULT_HOP_MIN_PLAYERS, 0, 32, false, function(val)
+SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.flags.HopMinPlayers) or DEFAULT_HOP_MIN_PLAYERS, 0, 30, false, function(val)
     library.flags.HopMinPlayers = val
     saveConfig()
 end)
