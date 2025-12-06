@@ -1505,7 +1505,7 @@ local ALLOWED_VEHICLES = {
     Camaro = true,
 }
 
-local SPAWN_PATHS = {-1137, 41, -1567
+local SPAWN_PATHS = {
     [Vector3.new(-1189, 19, -1581)] = {
         Vector3.new(-1173, 20, -1581),
         Vector3.new(-1171, 21, -1627),
