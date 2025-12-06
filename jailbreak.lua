@@ -1871,45 +1871,57 @@ local function resetLocalCharacter()
     end
 end
 
+local ESCAPE_CHECK_DISTANCE = 60          -- how far outward to scan
+local ESCAPE_VERTICAL_CLEARANCE = ROOF_RAYCAST_HEIGHT or 25
+local ESCAPE_RAY_OFFSET = Vector3.new(0, 1, 0)
+
+local CHECK_DIRECTIONS = {
+    Vector3.xAxis, -Vector3.xAxis,
+    Vector3.zAxis, -Vector3.zAxis,
+    (Vector3.xAxis + Vector3.zAxis).Unit,
+    (-Vector3.xAxis + Vector3.zAxis).Unit,
+    (Vector3.xAxis - Vector3.zAxis).Unit,
+    (-Vector3.xAxis - Vector3.zAxis).Unit,
+}
+
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+raycastParams.IgnoreWater = true
+
 local function canEscapeRoofCover()
     local root = getRootPart()
     if not root then return false end
 
-    local spawnPath = getNearestSpawnPath()
-    if spawnPath then
+    if getNearestSpawnPath() then
         return true
     end
 
-    local checkDirections = {
-        Vector3.new(1, 0, 0),
-        Vector3.new(-1, 0, 0),
-        Vector3.new(0, 0, 1),
-        Vector3.new(0, 0, -1),
-        Vector3.new(1, 0, 1).Unit,
-        Vector3.new(-1, 0, 1).Unit,
-        Vector3.new(1, 0, -1).Unit,
-        Vector3.new(-1, 0, -1).Unit,
+    raycastParams.FilterDescendantsInstances = {
+        LocalPlayer.Character,
+        CurrentVehicle,
     }
 
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, CurrentVehicle}
-    raycastParams.IgnoreWater = true
+    local originPos = root.Position
 
-    for _, dir in ipairs(checkDirections) do
-        local checkPos = root.Position + (dir * 50)
-        local upRay = Workspace:Raycast(
-            checkPos + Vector3.new(0, 1, 0),
-            Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0),
+    for _, dir in ipairs(CHECK_DIRECTIONS) do
+        local checkPos = originPos + dir * ESCAPE_CHECK_DISTANCE
+
+        -- Raycast upward to see if we hit a roof
+        local result = workspace:Raycast(
+            checkPos + ESCAPE_RAY_OFFSET,
+            Vector3.yAxis * ESCAPE_VERTICAL_CLEARANCE,
             raycastParams
         )
-        if not upRay then
+
+        -- If ray hits nothing above → open space → escape possible
+        if not result then
             return true
         end
     end
 
     return false
 end
+
 
 local function moveToWorldPosition(targetPos, isCar)
     local root = getRootPart()
