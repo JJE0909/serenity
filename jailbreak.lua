@@ -1525,7 +1525,7 @@ local SPAWN_PATHS = {
     [Vector3.new(-1173, 39, -1582)] = {
         Vector3.new(-1159, 40, -1581),
         Vector3.new(-1154, 40, -1566),
-        Vector3.new(-1126, 41, -1566),
+        Vector3.new(-1122, 41, -1566),
     },
     [Vector3.new(-1121, 19, -1586)] = {
         Vector3.new(-1173, 20, -1587),
@@ -3053,7 +3053,66 @@ local function runArrestSequence(target)
             task.wait(0.05)
         end
 
+        ----------------------------------------------------------------------
+        -- NEW: make the car go down to around the player's height before exiting
+        ----------------------------------------------------------------------
         if CurrentVehicle and CurrentVehicle.PrimaryPart then
+            local vehiclePart = CurrentVehicle.PrimaryPart
+
+            local tChar = target.Character
+            local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+
+            local targetPos
+            if tRoot then
+                targetPos = tRoot.Position
+            else
+                -- fallback: use vehicle's current XZ if target is gone
+                targetPos = vehiclePart.Position
+            end
+
+            local safeY       = getSafeHeightAboveGround(targetPos)
+            local desiredY    = math.max(targetPos.Y + 3, safeY + 3) -- a bit above target/ground
+            local descendPos  = v3new(targetPos.X, desiredY, targetPos.Z)
+            local descendStart = tick()
+            local descendTimeout = 3 -- seconds
+
+            while AutoArrestEnabled and (tick() - descendStart) < descendTimeout do
+                vehiclePart = CurrentVehicle and CurrentVehicle.PrimaryPart
+                if not vehiclePart or not vehiclePart.Parent then
+                    break
+                end
+
+                -- update target position if they still exist
+                tChar = target.Character
+                tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                if tRoot then
+                    targetPos = tRoot.Position
+                    safeY     = getSafeHeightAboveGround(targetPos)
+                    desiredY  = math.max(targetPos.Y + 3, safeY + 3)
+                    descendPos = v3new(targetPos.X, desiredY, targetPos.Z)
+                end
+
+                setVelocityTowards(descendPos, FLY_SPEED_CAR, vehiclePart)
+
+                local vPos      = vehiclePart.Position
+                local vertical  = math.abs(vPos.Y - desiredY)
+                local horizDist = (v3new(vPos.X, 0, vPos.Z) - v3new(descendPos.X, 0, descendPos.Z)).Magnitude
+
+                -- close enough to player's height
+                if vertical < 2 and horizDist < 5 then
+                    break
+                end
+
+                task.wait(0.05)
+            end
+
+            -- stop the car's movement once we're roughly at the right height
+            resetPartVelocity(vehiclePart)
+        end
+        ----------------------------------------------------------------------
+
+        if CurrentVehicle and CurrentVehicle.PrimaryPart then
+            -- ensure velocity is fully reset (extra safety)
             resetPartVelocity(CurrentVehicle.PrimaryPart)
         end
 
@@ -3173,6 +3232,7 @@ local function runArrestSequence(target)
 
     return success
 end
+
 
 
 
