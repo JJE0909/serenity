@@ -2947,6 +2947,11 @@ end
 local function runArrestSequence(target)
     ActionInProgress = true
 
+    -- Reset any cover timers from previous actions so they don't leak into this arrest
+    SelfCoveredStartTime   = nil
+    TargetCoveredStartTime = nil
+    UnderRoofStartTime     = nil
+
     local success = false 
     local targetNameForLog = target and target.Name or "Unknown"
     library:LogStatus("Starting arrest sequence on: " .. targetNameForLog)
@@ -3168,6 +3173,7 @@ local function runArrestSequence(target)
 
     return success
 end
+
 
 
 local function autoArrestMainLoop()
@@ -3685,14 +3691,3 @@ Serenity.SaveConfig = writeConfig
 Serenity.LoadConfig = loadConfigFromFile
 
 return Serenity
-
-
-
-for _, func in pairs(getgc()) do
-    if typeof(func) == 'function' and islclosure(func) then
-        if getinfo(func).name == 'CheatCheck' then
-            func = function() return end
-            break
-        end
-    end
-end
