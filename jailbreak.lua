@@ -1,3 +1,4 @@
+
 local library = {}
 library.flags = {}
 library.currentTab = nil
@@ -5,364 +6,387 @@ local toggled = false
 local mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local theme = {
-	main = Color3.fromRGB(37, 37, 37),
-	secondary = Color3.fromRGB(42, 42, 42),
-	accent = Color3.fromRGB(255, 255, 255),
-	accent2 = Color3.fromRGB(57, 57, 57),
-    accent3 = Color3.fromRGB(51, 51, 155)
+    main      = Color3.fromRGB(37, 37, 37),
+    secondary = Color3.fromRGB(42, 42, 42),
+    accent    = Color3.fromRGB(255, 255, 255),
+    accent2   = Color3.fromRGB(57, 57, 57),
+    accent3   = Color3.fromRGB(51, 51, 155),
 }
 
-function Tween(obj,size,delay)
-	obj:TweenSize(size,"Out","Sine",delay,false)
+local function Tween(obj, size, delay)
+    obj:TweenSize(size, "Out", "Sine", delay, false)
 end
 
-function Tween2(obj, t, data)
-	game:GetService("TweenService"):Create(obj, TweenInfo.new(t[1], Enum.EasingStyle[t[2]], Enum.EasingDirection[t[3]]), data):Play()
-	return true
+local function Tween2(obj, t, data)
+    game:GetService("TweenService"):Create(
+        obj,
+        TweenInfo.new(t[1], Enum.EasingStyle[t[2]], Enum.EasingDirection[t[3]]),
+        data
+    ):Play()
+    return true
 end
 
-function Ripple(obj)
-	spawn(function()
-		if obj.ClipsDescendants ~= true then
-			obj.ClipsDescendants = true
-		end
-		local Ripple = Instance.new("ImageLabel")
-		Ripple.Name = "Ripple"
-		Ripple.Parent = obj
-		Ripple.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		Ripple.BackgroundTransparency = 1.000
-		Ripple.ZIndex = 8
-		Ripple.Image = "rbxassetid://2708891598"
-		Ripple.ImageTransparency = 0.800
-		Ripple.ScaleType = Enum.ScaleType.Fit
-		Ripple.ImageColor3 = Color3.fromRGB(0,0,0)
-		Ripple.Position = UDim2.new((mouse.X - Ripple.AbsolutePosition.X) / obj.AbsoluteSize.X, 0, (mouse.Y - Ripple.AbsolutePosition.Y) / obj.AbsoluteSize.Y, 0)
-		Tween2(Ripple, {.3, 'Linear', 'InOut'}, {Position = UDim2.new(-5.5, 0, -5.5, 0), Size = UDim2.new(12, 0, 12, 0)})
-		wait(0.15)
-		Tween2(Ripple, {.3, 'Linear', 'InOut'}, {ImageTransparency = 1})
-		wait(.3)
-		Ripple:Destroy()
-	end)
+local function Ripple(obj)
+    task.spawn(function()
+        if obj.ClipsDescendants ~= true then
+            obj.ClipsDescendants = true
+        end
+        local Ripple = Instance.new("ImageLabel")
+        Ripple.Name = "Ripple"
+        Ripple.Parent = obj
+        Ripple.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        Ripple.BackgroundTransparency = 1
+        Ripple.ZIndex = 8
+        Ripple.Image = "rbxassetid://2708891598"
+        Ripple.ImageTransparency = 0.8
+        Ripple.ScaleType = Enum.ScaleType.Fit
+        Ripple.ImageColor3 = Color3.fromRGB(0, 0, 0)
+        Ripple.Position = UDim2.new(
+            (mouse.X - Ripple.AbsolutePosition.X) / obj.AbsoluteSize.X,
+            0,
+            (mouse.Y - Ripple.AbsolutePosition.Y) / obj.AbsoluteSize.Y,
+            0
+        )
+        Tween2(Ripple, {0.3, "Linear", "InOut"}, {
+            Position = UDim2.new(-5.5, 0, -5.5, 0),
+            Size = UDim2.new(12, 0, 12, 0),
+        })
+        task.wait(0.15)
+        Tween2(Ripple, {0.3, "Linear", "InOut"}, {
+            ImageTransparency = 1,
+        })
+        task.wait(0.3)
+        Ripple:Destroy()
+    end)
 end
 
-local changeingTab = false
-function SwitchTab(Tab)
-	if changeingTab == true then return end
-	local Old = library.currentTab
-	if Old == nil then
-		library.currentTab = Tab[1]
-		Tab[1].Visible = true
-		return
-	end
-	if Tab[1].Visible == true then return end
-	changeingTab = true
-	Tween(Old.Parent,UDim2.new(0, 440,0, 0),.1)
-	Old.Visible = false
-	wait(0.2)
-	Tab[1].Visible = true
-	Tween(Tab[1].Parent,UDim2.new(0, 440,0, 318),.1)
-	library.currentTab = Tab[1]
-	wait(.1)
-	changeingTab = false
+local changingTab = false
+local function SwitchTab(Tab)
+    if changingTab then return end
+    local Old = library.currentTab
+    if Old == nil then
+        library.currentTab = Tab[1]
+        Tab[1].Visible = true
+        return
+    end
+    if Tab[1].Visible == true then return end
+    changingTab = true
+    Tween(Old.Parent, UDim2.new(0, 440, 0, 0), 0.1)
+    Old.Visible = false
+    task.wait(0.2)
+    Tab[1].Visible = true
+    Tween(Tab[1].Parent, UDim2.new(0, 440, 0, 318), 0.1)
+    library.currentTab = Tab[1]
+    task.wait(0.1)
+    changingTab = false
 end
 
-function drag(frame, hold) 
-	if not hold then
-		hold = frame
-	end
-	local dragging
-	local dragInput
-	local dragStart
-	local startPos
+local function drag(frame, hold)
+    if not hold then
+        hold = frame
+    end
+    local dragging
+    local dragInput
+    local dragStart
+    local startPos
 
-	local function update(input)
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
 
-	hold.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = frame.Position
+    hold.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
 
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
-		end
-	end)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
 
-	frame.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			dragInput = input
-		end
-	end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
 
-	game:GetService("UserInputService").InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
-			update(input)
-		end
-	end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
 end
 
 function library:Create(title)
-	if game:WaitForChild("CoreGui"):FindFirstChild("Serenity") then
-		game:WaitForChild("CoreGui"):FindFirstChild("Serenity"):Destroy()
-	end
-	local Serenity = Instance.new("ScreenGui")
-	local MainFrame = Instance.new("Frame")
-	local MainFrameC = Instance.new("UICorner")
-	local SideFrame = Instance.new("Frame")
-	local SideFrameC = Instance.new("UICorner")
-	local TabContainer = Instance.new("ScrollingFrame")
-	local TabOpen = Instance.new("TextButton")
-	local TabContainerL = Instance.new("UIListLayout")
-	local TabContainerP = Instance.new("UIPadding")
-	local TabHolder = Instance.new("Frame")
-	local TabHolderC = Instance.new("UICorner")
-	local TopFrame = Instance.new("Frame")
-	local SideFrameC_2 = Instance.new("UICorner")
-	local Title = Instance.new("TextLabel")
-	
-  function DestroyUI()
-      if Serenity then
-          Serenity:Destroy()
-      end
-  end
+    if game:WaitForChild("CoreGui"):FindFirstChild("Serenity") then
+        game:WaitForChild("CoreGui"):FindFirstChild("Serenity"):Destroy()
+    end
 
-	Serenity.Name = "Serenity"
-	Serenity.Parent = game:WaitForChild("CoreGui")
+    local Serenity = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local MainFrameC = Instance.new("UICorner")
+    local SideFrame = Instance.new("Frame")
+    local SideFrameC = Instance.new("UICorner")
+    local TabContainer = Instance.new("ScrollingFrame")
+    local TabContainerL = Instance.new("UIListLayout")
+    local TabContainerP = Instance.new("UIPadding")
+    local TabHolder = Instance.new("Frame")
+    local TabHolderC = Instance.new("UICorner")
+    local TopFrame = Instance.new("Frame")
+    local TopFrameC = Instance.new("UICorner")
+    local Title = Instance.new("TextLabel")
 
-	MainFrame.Name = "MainFrame"
-	MainFrame.Parent = Serenity
-	MainFrame.BackgroundColor3 = theme.main
-	MainFrame.Position = UDim2.new(0.345118761, 0, 0.277912617, 0)
-	MainFrame.Size = UDim2.new(0, 587, 0, 366)
-	MainFrame.BorderSizePixel = 0
-	
-	function ToggleUI()
+    local function DestroyUI()
+        if Serenity then
+            Serenity:Destroy()
+        end
+    end
+
+    _G.SerenityDestroyUI = DestroyUI
+
+    Serenity.Name = "Serenity"
+    Serenity.Parent = game:WaitForChild("CoreGui")
+
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = Serenity
+    MainFrame.BackgroundColor3 = theme.main
+    MainFrame.Position = UDim2.new(0.3451, 0, 0.2779, 0)
+    MainFrame.Size = UDim2.new(0, 587, 0, 366)
+    MainFrame.BorderSizePixel = 0
+
+    local function ToggleUI()
         toggled = not toggled
         if not MainFrame.ClipsDescendants then
             MainFrame.ClipsDescendants = true
         end
         if toggled then
-            Tween(MainFrame,UDim2.new(0, 587,0, 0),0.15)
-            else
-            Tween(MainFrame,UDim2.new(0,587,0,366),0.15)
+            Tween(MainFrame, UDim2.new(0, 587, 0, 0), 0.15)
+        else
+            Tween(MainFrame, UDim2.new(0, 587, 0, 366), 0.15)
         end
-	end
+    end
 
-	MainFrameC.CornerRadius = UDim.new(0, 6)
-	MainFrameC.Name = "MainFrameC"
-	MainFrameC.Parent = MainFrame
+    _G.SerenityToggleUI = ToggleUI
 
-	SideFrame.Name = "SideFrame"
-	SideFrame.Parent = MainFrame
-	SideFrame.BackgroundColor3 = theme.secondary
-	SideFrame.Position = UDim2.new(0.0120000103, 0, 0.117999971, 0)
-	SideFrame.Size = UDim2.new(0, 130, 0, 318)
+    MainFrameC.CornerRadius = UDim.new(0, 6)
+    MainFrameC.Name = "MainFrameC"
+    MainFrameC.Parent = MainFrame
 
-	SideFrameC.CornerRadius = UDim.new(0, 4)
-	SideFrameC.Name = "SideFrameC"
-	SideFrameC.Parent = SideFrame
+    SideFrame.Name = "SideFrame"
+    SideFrame.Parent = MainFrame
+    SideFrame.BackgroundColor3 = theme.secondary
+    SideFrame.Position = UDim2.new(0.012, 0, 0.118, 0)
+    SideFrame.Size = UDim2.new(0, 130, 0, 318)
 
-	TabContainer.Name = "TabContainer"
-	TabContainer.Parent = SideFrame
-	TabContainer.Active = true
-	TabContainer.BackgroundColor3 = theme.secondary
-	TabContainer.BackgroundTransparency = 1.000
-	TabContainer.BorderSizePixel = 0
-	TabContainer.Position = UDim2.new(0.0510812625, 0, 0.0220125783, 0)
-	TabContainer.Size = UDim2.new(0, 117, 0, 305)
-	TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-	TabContainer.ScrollBarThickness = 0
+    SideFrameC.CornerRadius = UDim.new(0, 4)
+    SideFrameC.Name = "SideFrameC"
+    SideFrameC.Parent = SideFrame
 
-	TabContainerL.Name = "TabContainerL"
-	TabContainerL.Parent = TabContainer
-	TabContainerL.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	TabContainerL.SortOrder = Enum.SortOrder.LayoutOrder
-	TabContainerL.Padding = UDim.new(0, 5)
+    TabContainer.Name = "TabContainer"
+    TabContainer.Parent = SideFrame
+    TabContainer.Active = true
+    TabContainer.BackgroundColor3 = theme.secondary
+    TabContainer.BackgroundTransparency = 1
+    TabContainer.BorderSizePixel = 0
+    TabContainer.Position = UDim2.new(0.051, 0, 0.022, 0)
+    TabContainer.Size = UDim2.new(0, 117, 0, 305)
+    TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    TabContainer.ScrollBarThickness = 0
 
-	TabContainerP.Name = "TabContainerP"
-	TabContainerP.Parent = TabContainer
-	TabContainerP.PaddingTop = UDim.new(0, 5)
+    TabContainerL.Name = "TabContainerL"
+    TabContainerL.Parent = TabContainer
+    TabContainerL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    TabContainerL.SortOrder = Enum.SortOrder.LayoutOrder
+    TabContainerL.Padding = UDim.new(0, 5)
 
-	TabHolder.Name = "TabHolder"
-	TabHolder.Parent = MainFrame
-	TabHolder.BorderSizePixel = 0
-	TabHolder.BackgroundColor3 = theme.secondary
-	TabHolder.Position = UDim2.new(0.244000047, 0, 0.117999971, 0)
-	TabHolder.Size = UDim2.new(0, 440, 0, 318)
-	TabHolder.ClipsDescendants = true
+    TabContainerP.Name = "TabContainerP"
+    TabContainerP.Parent = TabContainer
+    TabContainerP.PaddingTop = UDim.new(0, 5)
 
-	TabHolderC.CornerRadius = UDim.new(0, 4)
-	TabHolderC.Name = "TabHolderC"
-	TabHolderC.Parent = TabHolder
+    TabHolder.Name = "TabHolder"
+    TabHolder.Parent = MainFrame
+    TabHolder.BorderSizePixel = 0
+    TabHolder.BackgroundColor3 = theme.secondary
+    TabHolder.Position = UDim2.new(0.244, 0, 0.118, 0)
+    TabHolder.Size = UDim2.new(0, 440, 0, 318)
+    TabHolder.ClipsDescendants = true
 
-	TopFrame.Name = "TopFrame"
-	TopFrame.Parent = MainFrame
-	TopFrame.BackgroundColor3 = theme.secondary
-	TopFrame.Position = UDim2.new(0.0123288939, 0, 0.0191256832, 0)
-	TopFrame.Size = UDim2.new(0, 575, 0, 33)
+    TabHolderC.CornerRadius = UDim.new(0, 4)
+    TabHolderC.Name = "TabHolderC"
+    TabHolderC.Parent = TabHolder
 
-	SideFrameC_2.CornerRadius = UDim.new(0, 4)
-	SideFrameC_2.Name = "SideFrameC"
-	SideFrameC_2.Parent = TopFrame
+    TopFrame.Name = "TopFrame"
+    TopFrame.Parent = MainFrame
+    TopFrame.BackgroundColor3 = theme.secondary
+    TopFrame.Position = UDim2.new(0.0123, 0, 0.0191, 0)
+    TopFrame.Size = UDim2.new(0, 575, 0, 33)
 
-	Title.Name = "Title"
-	Title.Parent = TopFrame
-	Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	Title.BackgroundTransparency = 1.000
-	Title.BorderSizePixel = 0
-	Title.Position = UDim2.new(0.0112130605, 0, 0, 0)
-	Title.Size = UDim2.new(0, 569, 0, 33)
-	Title.Font = Enum.Font.GothamMedium
-	Title.Text = title
-	Title.TextColor3 = theme.accent
-	Title.TextSize = 20.000
-	Title.TextXAlignment = Enum.TextXAlignment.Left
+    TopFrameC.CornerRadius = UDim.new(0, 4)
+    TopFrameC.Name = "TopFrameC"
+    TopFrameC.Parent = TopFrame
 
-	drag(MainFrame, TopFrame)
+    Title.Name = "Title"
+    Title.Parent = TopFrame
+    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title.BackgroundTransparency = 1
+    Title.BorderSizePixel = 0
+    Title.Position = UDim2.new(0.0112, 0, 0, 0)
+    Title.Size = UDim2.new(0, 569, 0, 33)
+    Title.Font = Enum.Font.GothamMedium
+    Title.Text = title
+    Title.TextColor3 = theme.accent
+    Title.TextSize = 20
+    Title.TextXAlignment = Enum.TextXAlignment.Left
 
-	TabContainerL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		TabContainer.CanvasSize = UDim2.new(0, 0, 0, TabContainerL.AbsoluteContentSize.Y + 18)
-	end)
+    drag(MainFrame, TopFrame)
 
-	local Holder = {}
+    TabContainerL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabContainer.CanvasSize = UDim2.new(0, 0, 0, TabContainerL.AbsoluteContentSize.Y + 18)
+    end)
 
-	function Holder:Tab(name)
-		local TabOpen = Instance.new("TextButton")
-		local TabOpenC = Instance.new("UICorner")
-		local Section = Instance.new("ScrollingFrame")
-		local SectionP = Instance.new("UIPadding")
-		local TabHolderC = Instance.new("UICorner")
-		local SectionL = Instance.new("UIListLayout")
+    local Holder = {}
 
-		TabOpen.Name = "TabOpen"
-		TabOpen.Parent = TabContainer
-		TabOpen.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
-		TabOpen.BackgroundTransparency = 1.000
-		TabOpen.BorderSizePixel = 0
-		TabOpen.Position = UDim2.new(0, 0, 0, 0)
-		TabOpen.Size = UDim2.new(0, 116, 0, 30)
-		TabOpen.AutoButtonColor = false
-		TabOpen.Font = Enum.Font.GothamMedium
-		TabOpen.Text = ("       %s"):format(name)
-		TabOpen.TextColor3 = theme.accent
-		TabOpen.TextSize = 14.000
-		TabOpen.TextXAlignment = Enum.TextXAlignment.Left
+    function Holder:Tab(name)
+        local TabOpen = Instance.new("TextButton")
+        local TabOpenC = Instance.new("UICorner")
+        local Section = Instance.new("ScrollingFrame")
+        local SectionP = Instance.new("UIPadding")
+        local SectionC = Instance.new("UICorner")
+        local SectionL = Instance.new("UIListLayout")
 
-		TabOpenC.CornerRadius = UDim.new(1, 10)
-		TabOpenC.Name = "TabOpenC"
-		TabOpenC.Parent = TabOpen
+        TabOpen.Name = "TabOpen"
+        TabOpen.Parent = TabContainer
+        TabOpen.BackgroundColor3 = theme.secondary
+        TabOpen.BackgroundTransparency = 1
+        TabOpen.BorderSizePixel = 0
+        TabOpen.Size = UDim2.new(0, 116, 0, 30)
+        TabOpen.AutoButtonColor = false
+        TabOpen.Font = Enum.Font.GothamMedium
+        TabOpen.Text = "       " .. name
+        TabOpen.TextColor3 = theme.accent
+        TabOpen.TextSize = 14
+        TabOpen.TextXAlignment = Enum.TextXAlignment.Left
 
-		Section.Name = name
-		Section.Parent = TabHolder
-		Section.Active = true
-		Section.BackgroundColor3 = theme.secondary
-		Section.BorderSizePixel = 0
-		Section.Position = UDim2.new(0, 0, -0.00149685144, 0)
-		Section.Size = UDim2.new(0, 440, 0, 318)
-		Section.Visible = false
-		Section.ScrollBarThickness = 0
-		Section.ScrollBarImageColor3 = theme.accent
-		Section.CanvasSize = UDim2.new(0,0,0,0)
+        TabOpenC.CornerRadius = UDim.new(1, 10)
+        TabOpenC.Name = "TabOpenC"
+        TabOpenC.Parent = TabOpen
 
-		TabHolderC.CornerRadius = UDim.new(0, 4)
-		TabHolderC.Name = "TabHolderC"
-		TabHolderC.Parent = Section
+        Section.Name = name
+        Section.Parent = TabHolder
+        Section.Active = true
+        Section.BackgroundColor3 = theme.secondary
+        Section.BorderSizePixel = 0
+        Section.Position = UDim2.new(0, 0, 0, 0)
+        Section.Size = UDim2.new(0, 440, 0, 318)
+        Section.Visible = false
+        Section.ScrollBarThickness = 0
+        Section.ScrollBarImageColor3 = theme.accent
+        Section.CanvasSize = UDim2.new(0, 0, 0, 0)
 
-		SectionP.Name = "SectionP"
-		SectionP.Parent = Section
-		SectionP.PaddingLeft = UDim.new(0, 5)
-		SectionP.PaddingTop = UDim.new(0, 5)
-		
-		SectionL.Name = "SectionL"
+        SectionC.CornerRadius = UDim.new(0, 4)
+        SectionC.Name = "SectionC"
+        SectionC.Parent = Section
+
+        SectionP.Name = "SectionP"
+        SectionP.Parent = Section
+        SectionP.PaddingLeft = UDim.new(0, 5)
+        SectionP.PaddingTop = UDim.new(0, 5)
+
+        SectionL.Name = "SectionL"
         SectionL.Parent = Section
         SectionL.SortOrder = Enum.SortOrder.LayoutOrder
         SectionL.Padding = UDim.new(0, 5)
-        
+
         SectionL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Section.CanvasSize = UDim2.new(0, 0, 0, SectionL.AbsoluteContentSize.Y + 18)
         end)
 
-		local IsTabOpen = false
-		TabOpen.MouseButton1Click:Connect(function()
-			spawn(function()
-				Ripple(TabOpen)
-			end)
-			SwitchTab({Section})
-		end)
-		if library.currentTab == nil then SwitchTab({Section}) end
-		
-		local TabHolder = {}
-		
-		function TabHolder:Section(name)
+        TabOpen.MouseButton1Click:Connect(function()
+            task.spawn(function()
+                Ripple(TabOpen)
+            end)
+            SwitchTab({Section})
+        end)
+
+        if library.currentTab == nil then
+            SwitchTab({Section})
+        end
+
+        local TabHolderObject = {}
+
+        function TabHolderObject:Section(name)
             local SectionSplit = Instance.new("Frame")
-            local SectionC = Instance.new("UICorner")
+            local SectionC2 = Instance.new("UICorner")
             local SectionName = Instance.new("TextLabel")
             local SectionOpened = Instance.new("ImageLabel")
             local TabL = Instance.new("UIListLayout")
             local UIPadding = Instance.new("UIPadding")
-            
+
             SectionSplit.Name = "SectionSplit"
             SectionSplit.Parent = Section
             SectionSplit.BackgroundColor3 = Color3.fromRGB(37, 44, 72)
-            SectionSplit.BackgroundTransparency = 1.000
+            SectionSplit.BackgroundTransparency = 1
             SectionSplit.BorderSizePixel = 0
             SectionSplit.ClipsDescendants = true
-            SectionSplit.Size = UDim2.new(0.981000066, 0, -0.025559105, 44)
-            
-            SectionC.CornerRadius = UDim.new(0, 6)
-            SectionC.Name = "SectionC"
-            SectionC.Parent = SectionSplit
-            
+            SectionSplit.Size = UDim2.new(0.981, 0, 0, 44)
+
+            SectionC2.CornerRadius = UDim.new(0, 6)
+            SectionC2.Name = "SectionC2"
+            SectionC2.Parent = SectionSplit
+
             SectionName.Name = "SectionName"
             SectionName.Parent = SectionSplit
             SectionName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            SectionName.BackgroundTransparency = 1.000
-            SectionName.Position = UDim2.new(0.18319124, 0, -1.18047225, 0)
+            SectionName.BackgroundTransparency = 1
+            SectionName.Position = UDim2.new(0.183, 0, -1.18, 0)
             SectionName.Size = UDim2.new(0, 401, 0, 36)
             SectionName.Font = Enum.Font.GothamMedium
             SectionName.Text = name
             SectionName.TextColor3 = theme.accent
-            SectionName.TextSize = 16.000
+            SectionName.TextSize = 16
             SectionName.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             SectionOpened.Name = "SectionOpened"
             SectionOpened.Parent = SectionName
-            SectionOpened.BackgroundTransparency = 1.000
+            SectionOpened.BackgroundTransparency = 1
             SectionOpened.BorderSizePixel = 0
             SectionOpened.Position = UDim2.new(0, -33, 0, 5)
             SectionOpened.Size = UDim2.new(0, 26, 0, 26)
             SectionOpened.ImageColor3 = theme.accent
-            
+
             TabL.Name = "TabL"
             TabL.Parent = SectionSplit
             TabL.SortOrder = Enum.SortOrder.LayoutOrder
             TabL.VerticalAlignment = Enum.VerticalAlignment.Center
             TabL.Padding = UDim.new(0, 3)
-            
+
             UIPadding.Parent = SectionSplit
             UIPadding.PaddingLeft = UDim.new(0, 0)
             UIPadding.PaddingTop = UDim.new(0, 5)
-            
-		end
-        
-        function TabHolder:Button(name,callback)
+        end
+
+        function TabHolderObject:Button(name, callback)
             local ButtonFrame = Instance.new("Frame")
             local Button = Instance.new("TextButton")
             local ButtonC = Instance.new("UICorner")
-            
+
             ButtonFrame.Name = "ButtonFrame"
             ButtonFrame.Parent = Section
             ButtonFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            ButtonFrame.BackgroundTransparency = 1.000
+            ButtonFrame.BackgroundTransparency = 1
             ButtonFrame.BorderSizePixel = 0
             ButtonFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             Button.Name = "Button"
             Button.Parent = ButtonFrame
             Button.BackgroundColor3 = theme.main
@@ -371,47 +395,47 @@ function library:Create(title)
             Button.Size = UDim2.new(0, 428, 0, 38)
             Button.AutoButtonColor = false
             Button.Font = Enum.Font.GothamMedium
-            Button.Text = "   "..name
+            Button.Text = "   " .. name
             Button.TextColor3 = theme.accent
-            Button.TextSize = 16.000
+            Button.TextSize = 16
             Button.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             ButtonC.CornerRadius = UDim.new(0, 6)
             ButtonC.Name = "ButtonC"
             ButtonC.Parent = Button
-            
+
             Button.MouseButton1Click:Connect(function()
-            spawn(function()
-                Ripple(Button)
+                task.spawn(function()
+                    Ripple(Button)
+                end)
+                task.spawn(callback)
             end)
-                spawn(callback)
-            end)
-            
+
             local funcs = {
-                updateName = function(newName)
+                updateName = function(_, newName)
                     Button.Text = "   " .. newName
                 end,
                 currentName = function()
                     return Button.Text
                 end,
-                Module = ButtonFrame
+                Module = ButtonFrame,
             }
-            
+
             return funcs
         end
-                
-        function TabHolder:Label(text)
+
+        function TabHolderObject:Label(text)
             local LabelFrame = Instance.new("Frame")
             local Label = Instance.new("TextLabel")
             local LabelC = Instance.new("UICorner")
-            
+
             LabelFrame.Name = "LabelFrame"
             LabelFrame.Parent = Section
             LabelFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            LabelFrame.BackgroundTransparency = 1.000
+            LabelFrame.BackgroundTransparency = 1
             LabelFrame.BorderSizePixel = 0
             LabelFrame.Size = UDim2.new(0, 428, 0, 25)
-            
+
             Label.Name = "Label"
             Label.Parent = LabelFrame
             Label.BackgroundColor3 = theme.main
@@ -421,34 +445,33 @@ function library:Create(title)
             Label.Font = Enum.Font.GothamMedium
             Label.Text = text
             Label.TextColor3 = theme.accent
-            Label.TextSize = 16.000
+            Label.TextSize = 16
             Label.TextXAlignment = Enum.TextXAlignment.Center
-            
+
             LabelC.CornerRadius = UDim.new(0, 6)
             LabelC.Name = "LabelC"
             LabelC.Parent = Label
 
             local funcs = {
-                SetValue = function(self, newText)
+                SetValue = function(_, newText)
                     Label.Text = tostring(newText)
                 end,
                 Module = LabelFrame,
                 GetText = function()
                     return Label.Text
-                end
+                end,
             }
 
             return funcs
         end
 
-        
-        function TabHolder:Toggle(name,flag,val,callback)
-            local callback = callback or function() end
-            local val = val or false
-            assert(name,"Name Missing")
-            assert(flag,"Flag Missing")
+        function TabHolderObject:Toggle(name, flag, val, callback)
+            callback = callback or function() end
+            val = val or false
+            assert(name, "Name Missing")
+            assert(flag, "Flag Missing")
             library.flags[flag] = val
-            
+
             local ToggleFrame = Instance.new("Frame")
             local ToggleBtn = Instance.new("TextButton")
             local ToggleBtnC = Instance.new("UICorner")
@@ -456,14 +479,14 @@ function library:Create(title)
             local ToggleSwitch = Instance.new("Frame")
             local ToggleSwitchC = Instance.new("UICorner")
             local ToggleDisableC = Instance.new("UICorner")
-            
+
             ToggleFrame.Name = "ToggleFrame"
             ToggleFrame.Parent = Section
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            ToggleFrame.BackgroundTransparency = 1.000
+            ToggleFrame.BackgroundTransparency = 1
             ToggleFrame.BorderSizePixel = 0
             ToggleFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             ToggleBtn.Name = "ToggleBtn"
             ToggleBtn.Parent = ToggleFrame
             ToggleBtn.BackgroundColor3 = theme.main
@@ -471,89 +494,108 @@ function library:Create(title)
             ToggleBtn.Size = UDim2.new(0, 428, 0, 38)
             ToggleBtn.AutoButtonColor = false
             ToggleBtn.Font = Enum.Font.GothamMedium
-            ToggleBtn.Text = "   "..name
+            ToggleBtn.Text = "   " .. name
             ToggleBtn.TextColor3 = theme.accent
-            ToggleBtn.TextSize = 16.000
+            ToggleBtn.TextSize = 16
             ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             ToggleBtnC.CornerRadius = UDim.new(0, 6)
             ToggleBtnC.Name = "ToggleBtnC"
             ToggleBtnC.Parent = ToggleBtn
-            
+
             ToggleDisable.Name = "ToggleDisable"
             ToggleDisable.Parent = ToggleBtn
             ToggleDisable.BackgroundColor3 = theme.secondary
             ToggleDisable.BorderSizePixel = 0
-            ToggleDisable.Position = UDim2.new(0.901869178, 0, 0.208881587, 0)
+            ToggleDisable.Position = UDim2.new(0.9019, 0, 0.2089, 0)
             ToggleDisable.Size = UDim2.new(0, 36, 0, 22)
-            
+
             ToggleSwitch.Name = "ToggleSwitch"
             ToggleSwitch.Parent = ToggleDisable
             ToggleSwitch.BackgroundColor3 = theme.accent
             ToggleSwitch.Size = UDim2.new(0, 24, 0, 22)
-            
+
             ToggleSwitchC.CornerRadius = UDim.new(0, 6)
             ToggleSwitchC.Name = "ToggleSwitchC"
             ToggleSwitchC.Parent = ToggleSwitch
-            
+
             ToggleDisableC.CornerRadius = UDim.new(0, 6)
             ToggleDisableC.Name = "ToggleDisableC"
             ToggleDisableC.Parent = ToggleDisable
-            
+
             local funcs = {
-            SetState = function(self, state)
-                if state == nil then state = not library.flags[flag] end
-                if library.flags[flag] == state then return end
-                game.TweenService:Create(ToggleSwitch, TweenInfo.new(0.2), {Position = UDim2.new(0, (state and ToggleSwitch.Size.X.Offset / 2 or 0), 0, 0), BackgroundColor3 = (state and theme.accent3 or theme.accent)}):Play()
-                library.flags[flag] = state
-                callback(state)
-            end,
-          Module = ToggleFrame
-        }
-        
-        if val == true then
-            funcs:SetState(flag,true)
+                SetState = function(_, state)
+                    if state == nil then
+                        state = not library.flags[flag]
+                    end
+                    if library.flags[flag] == state then
+                        return
+                    end
+                    game.TweenService:Create(
+                        ToggleSwitch,
+                        TweenInfo.new(0.2),
+                        {
+                            Position = UDim2.new(
+                                0,
+                                (state and ToggleSwitch.Size.X.Offset / 2 or 0),
+                                0,
+                                0
+                            ),
+                            BackgroundColor3 = (state and theme.accent3 or theme.accent),
+                        }
+                    ):Play()
+                    library.flags[flag] = state
+                    callback(state)
+                end,
+                Module = ToggleFrame,
+            }
+
+            if val == true then
+                funcs:SetState(true)
+            end
+
+            ToggleBtn.MouseButton1Click:Connect(function()
+                funcs:SetState()
+            end)
+
+            return funcs
         end
-        
-        ToggleBtn.MouseButton1Click:Connect(function()
-            funcs:SetState()
-        end)
-        return funcs
-    end
-        
-        function TabHolder:KeyBind(name,default,callback)
+
+        function TabHolderObject:KeyBind(name, default, callback)
             callback = callback or function() end
-            assert(name,"Name Missing")
-            assert(default,"Missing Default Key")
-            
-            local default = (typeof(default) == "string" and Enum.KeyCode[default] or default)
+            assert(name, "Name Missing")
+            assert(default, "Missing Default Key")
+
+            default = (typeof(default) == "string" and Enum.KeyCode[default] or default)
+
             local banned = {
-              Return = true;
-              Space = true;
-              Tab = true;
-              Backquote = true;
-              CapsLock = true;
-              Escape = true;
-              Unknown = true;
+                Return     = true,
+                Space      = true,
+                Tab        = true,
+                Backquote  = true,
+                CapsLock   = true,
+                Escape     = true,
+                Unknown    = true,
             }
+
             local shortNames = {
-              RightControl = 'Right Ctrl',
-              LeftControl = 'Left Ctrl',
-              LeftShift = 'Left Shift',
-              RightShift = 'Right Shift',
-              Semicolon = ";",
-              Quote = '"',
-              LeftBracket = '[',
-              RightBracket = ']',
-              Equals = '=',
-              Minus = '-',
-              RightAlt = 'Right Alt',
-              LeftAlt = 'Left Alt'
+                RightControl = "Right Ctrl",
+                LeftControl  = "Left Ctrl",
+                LeftShift    = "Left Shift",
+                RightShift   = "Right Shift",
+                Semicolon    = ";",
+                Quote        = '"',
+                LeftBracket  = "[",
+                RightBracket = "]",
+                Equals       = "=",
+                Minus        = "-",
+                RightAlt     = "Right Alt",
+                LeftAlt      = "Left Alt",
             }
-            
+
             local bindKey = default
             local keyTxt = (default and (shortNames[default.Name] or default.Name) or "None")
-            
+
             local KeybindFrame = Instance.new("Frame")
             local KeybindBtn = Instance.new("TextButton")
             local KeybindBtnC = Instance.new("UICorner")
@@ -561,14 +603,14 @@ function library:Create(title)
             local KeybindValueC = Instance.new("UICorner")
             local KeybindL = Instance.new("UIListLayout")
             local UIPadding = Instance.new("UIPadding")
-            
+
             KeybindFrame.Name = "KeybindFrame"
             KeybindFrame.Parent = Section
             KeybindFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            KeybindFrame.BackgroundTransparency = 1.000
+            KeybindFrame.BackgroundTransparency = 1
             KeybindFrame.BorderSizePixel = 0
             KeybindFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             KeybindBtn.Name = "KeybindBtn"
             KeybindBtn.Parent = KeybindFrame
             KeybindBtn.BackgroundColor3 = theme.main
@@ -576,77 +618,80 @@ function library:Create(title)
             KeybindBtn.Size = UDim2.new(0, 428, 0, 38)
             KeybindBtn.AutoButtonColor = false
             KeybindBtn.Font = Enum.Font.GothamMedium
-            KeybindBtn.Text = "   "..name
+            KeybindBtn.Text = "   " .. name
             KeybindBtn.TextColor3 = theme.accent
-            KeybindBtn.TextSize = 16.000
+            KeybindBtn.TextSize = 16
             KeybindBtn.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             KeybindBtnC.CornerRadius = UDim.new(0, 6)
             KeybindBtnC.Name = "KeybindBtnC"
             KeybindBtnC.Parent = KeybindBtn
-            
+
             KeybindValue.Name = "KeybindValue"
             KeybindValue.Parent = KeybindBtn
             KeybindValue.BackgroundColor3 = theme.secondary
             KeybindValue.BorderSizePixel = 0
-            KeybindValue.Position = UDim2.new(0.763033211, 0, 0.289473683, 0)
+            KeybindValue.Position = UDim2.new(0.763, 0, 0.289, 0)
             KeybindValue.Size = UDim2.new(0, 40, 0, 28)
             KeybindValue.AutoButtonColor = false
             KeybindValue.Font = Enum.Font.Gotham
             KeybindValue.Text = keyTxt
             KeybindValue.TextColor3 = theme.accent
-            KeybindValue.TextSize = 18.000
-            
+            KeybindValue.TextSize = 18
+
             KeybindValueC.CornerRadius = UDim.new(0, 6)
             KeybindValueC.Name = "KeybindValueC"
             KeybindValueC.Parent = KeybindValue
-            
+
             KeybindL.Name = "KeybindL"
             KeybindL.Parent = KeybindBtn
             KeybindL.HorizontalAlignment = Enum.HorizontalAlignment.Right
             KeybindL.SortOrder = Enum.SortOrder.LayoutOrder
             KeybindL.VerticalAlignment = Enum.VerticalAlignment.Center
-            
+
             UIPadding.Parent = KeybindBtn
             UIPadding.PaddingRight = UDim.new(0, 6)
-            
+
             game.UserInputService.InputBegan:Connect(function(inp, gpe)
-              if gpe then return end
-              if inp.UserInputType ~= Enum.UserInputType.Keyboard then return end
-              if inp.KeyCode ~= bindKey then return end
-              callback(bindKey.Name)
+                if gpe then return end
+                if inp.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                if inp.KeyCode ~= bindKey then return end
+                callback(bindKey.Name)
             end)
-            
+
             KeybindValue.MouseButton1Click:Connect(function()
-              KeybindValue.Text = "..."
-              wait()
-              local key, uwu = game.UserInputService.InputEnded:Wait()
-              local keyName = tostring(key.KeyCode.Name)
-              if key.UserInputType ~= Enum.UserInputType.Keyboard then
+                KeybindValue.Text = "..."
+                task.wait()
+                local key = game.UserInputService.InputEnded:Wait()
+                local keyName = tostring(key.KeyCode.Name)
+                if key.UserInputType ~= Enum.UserInputType.Keyboard then
+                    KeybindValue.Text = keyTxt
+                    return
+                end
+                if banned[keyName] then
+                    KeybindValue.Text = keyTxt
+                    return
+                end
+                task.wait()
+                bindKey = Enum.KeyCode[keyName]
+                keyTxt = shortNames[keyName] or keyName
                 KeybindValue.Text = keyTxt
-                return
-              end
-              if banned[keyName] then
-                KeybindValue.Text = keyTxt
-                return
-              end
-              wait()
-              bindKey = Enum.KeyCode[keyName]
-              KeybindValue.Text = shortNames[keyName] or keyName
             end)
-            
+
             KeybindValue:GetPropertyChangedSignal("TextBounds"):Connect(function()
-              KeybindValue.Size = UDim2.new(0, KeybindValue.TextBounds.X + 30, 0, 28)
+                KeybindValue.Size = UDim2.new(0, KeybindValue.TextBounds.X + 30, 0, 28)
             end)
             KeybindValue.Size = UDim2.new(0, KeybindValue.TextBounds.X + 30, 0, 28)
         end
-        
-        function TabHolder:TextBox(name,flag,default,callback)
-            local callback = callback or function() end
-            assert(name,"Name Missing")
-            assert(flag,"Flag Missing")
-            assert(default,"default Missing")
+
+        function TabHolderObject:TextBox(name, flag, default, callback)
+            callback = callback or function() end
+            assert(name, "Name Missing")
+            assert(flag, "Flag Missing")
+            assert(default, "default Missing")
+
             library.flags[flag] = default
+
             local TextboxFrame = Instance.new("Frame")
             local TextboxBack = Instance.new("TextButton")
             local TextboxBackC = Instance.new("UICorner")
@@ -655,14 +700,14 @@ function library:Create(title)
             local TextBox = Instance.new("TextBox")
             local TextboxBackL = Instance.new("UIListLayout")
             local TextboxBackP = Instance.new("UIPadding")
-            
+
             TextboxFrame.Name = "TextboxFrame"
             TextboxFrame.Parent = Section
             TextboxFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            TextboxFrame.BackgroundTransparency = 1.000
+            TextboxFrame.BackgroundTransparency = 1
             TextboxFrame.BorderSizePixel = 0
             TextboxFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             TextboxBack.Name = "TextboxBack"
             TextboxBack.Parent = TextboxFrame
             TextboxBack.BackgroundColor3 = theme.main
@@ -670,87 +715,87 @@ function library:Create(title)
             TextboxBack.Size = UDim2.new(0, 428, 0, 38)
             TextboxBack.AutoButtonColor = false
             TextboxBack.Font = Enum.Font.GothamMedium
-            TextboxBack.Text = "   "..name
+            TextboxBack.Text = "   " .. name
             TextboxBack.TextColor3 = theme.accent
-            TextboxBack.TextSize = 16.000
+            TextboxBack.TextSize = 16
             TextboxBack.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             TextboxBackC.CornerRadius = UDim.new(0, 6)
             TextboxBackC.Name = "TextboxBackC"
             TextboxBackC.Parent = TextboxBack
-            
+
             BoxBG.Name = "BoxBG"
             BoxBG.Parent = TextboxBack
             BoxBG.BackgroundColor3 = theme.secondary
             BoxBG.BorderSizePixel = 0
-            BoxBG.Position = UDim2.new(0.763033211, 0, 0.289473683, 0)
+            BoxBG.Position = UDim2.new(0.763, 0, 0.289, 0)
             BoxBG.Size = UDim2.new(0, 57, 0, 28)
             BoxBG.AutoButtonColor = false
             BoxBG.Font = Enum.Font.Gotham
             BoxBG.Text = ""
             BoxBG.TextColor3 = theme.accent
-            BoxBG.TextSize = 14.000
-            
+            BoxBG.TextSize = 14
+
             BoxBGC.CornerRadius = UDim.new(0, 6)
             BoxBGC.Name = "BoxBGC"
             BoxBGC.Parent = BoxBG
-            
+
             TextBox.Parent = BoxBG
             TextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            TextBox.BackgroundTransparency = 1.000
+            TextBox.BackgroundTransparency = 1
             TextBox.BorderSizePixel = 0
             TextBox.Size = UDim2.new(1, 0, 1, 0)
             TextBox.Font = Enum.Font.Gotham
             TextBox.Text = default
             TextBox.TextColor3 = theme.accent
-            TextBox.TextSize = 18.000
-            
+            TextBox.TextSize = 18
+
             TextboxBackL.Name = "TextboxBackL"
             TextboxBackL.Parent = TextboxBack
             TextboxBackL.HorizontalAlignment = Enum.HorizontalAlignment.Right
             TextboxBackL.SortOrder = Enum.SortOrder.LayoutOrder
             TextboxBackL.VerticalAlignment = Enum.VerticalAlignment.Center
-            
+
             TextboxBackP.Name = "TextboxBackP"
             TextboxBackP.Parent = TextboxBack
             TextboxBackP.PaddingRight = UDim.new(0, 6)
-            
+
             TextBox.FocusLost:Connect(function()
-              if TextBox.Text == "" then
-                TextBox.Text = default
-              end
-              library.flags[flag] = TextBox.Text
-              callback(TextBox.Text)
+                if TextBox.Text == "" then
+                    TextBox.Text = default
+                end
+                library.flags[flag] = TextBox.Text
+                callback(TextBox.Text)
             end)
-            
+
             TextBox:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 BoxBG.Size = UDim2.new(0, TextBox.TextBounds.X + 30, 0, 28)
             end)
             BoxBG.Size = UDim2.new(0, TextBox.TextBounds.X + 30, 0, 28)
         end
-        
-        function TabHolder:Dropdown(name,flag,options,resettext,callback)
-            local callback = callback or function() end
-            local options = options or {}
-            assert(name,"Name Missing")
-            assert(flag,"Flag Missing")
+
+        function TabHolderObject:Dropdown(name, flag, options, resettext, callback)
+            callback = callback or function() end
+            options = options or {}
+            assert(name, "Name Missing")
+            assert(flag, "Flag Missing")
             library.flags[flag] = nil
-            
+
             local DropdownFrame = Instance.new("Frame")
             local DropdownTop = Instance.new("TextButton")
             local DropdownTopC = Instance.new("UICorner")
             local DropdownOpen = Instance.new("TextButton")
             local DropdownText = Instance.new("TextBox")
             local DropdownFrameL = Instance.new("UIListLayout")
-            
+
             DropdownFrame.Name = "DropdownFrame"
             DropdownFrame.Parent = Section
             DropdownFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            DropdownFrame.BackgroundTransparency = 1.000
+            DropdownFrame.BackgroundTransparency = 1
             DropdownFrame.BorderSizePixel = 0
             DropdownFrame.ClipsDescendants = true
             DropdownFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             DropdownTop.Name = "DropdownTop"
             DropdownTop.Parent = DropdownFrame
             DropdownTop.BackgroundColor3 = theme.main
@@ -760,131 +805,131 @@ function library:Create(title)
             DropdownTop.Font = Enum.Font.GothamMedium
             DropdownTop.Text = ""
             DropdownTop.TextColor3 = theme.accent
-            DropdownTop.TextSize = 16.000
+            DropdownTop.TextSize = 16
             DropdownTop.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             DropdownTopC.CornerRadius = UDim.new(0, 6)
             DropdownTopC.Name = "DropdownTopC"
             DropdownTopC.Parent = DropdownTop
-            
+
             DropdownOpen.Name = "DropdownOpen"
             DropdownOpen.Parent = DropdownTop
             DropdownOpen.AnchorPoint = Vector2.new(0, 0.5)
             DropdownOpen.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            DropdownOpen.BackgroundTransparency = 1.000
+            DropdownOpen.BackgroundTransparency = 1
             DropdownOpen.BorderSizePixel = 0
-            DropdownOpen.Position = UDim2.new(0.918383181, 0, 0.5, 0)
+            DropdownOpen.Position = UDim2.new(0.918, 0, 0.5, 0)
             DropdownOpen.Size = UDim2.new(0, 20, 0, 20)
             DropdownOpen.Font = Enum.Font.Gotham
             DropdownOpen.Text = "+"
             DropdownOpen.TextColor3 = theme.accent3
-            DropdownOpen.TextSize = 24.000
+            DropdownOpen.TextSize = 24
             DropdownOpen.TextWrapped = true
-            
+
             DropdownText.Name = "DropdownText"
             DropdownText.Parent = DropdownTop
             DropdownText.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            DropdownText.BackgroundTransparency = 1.000
+            DropdownText.BackgroundTransparency = 1
             DropdownText.BorderSizePixel = 0
             DropdownText.Position = UDim2.new(0, 0, 0, 0)
             DropdownText.Size = UDim2.new(0, 184, 0, 38)
             DropdownText.Font = Enum.Font.GothamMedium
             DropdownText.PlaceholderColor3 = Color3.fromRGB(255, 255, 255)
-            DropdownText.Text = "   "..name
+            DropdownText.Text = "   " .. name
             DropdownText.TextColor3 = theme.accent
-            DropdownText.TextSize = 16.000
+            DropdownText.TextSize = 16
             DropdownText.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             DropdownFrameL.Name = "DropdownFrameL"
             DropdownFrameL.Parent = DropdownFrame
             DropdownFrameL.SortOrder = Enum.SortOrder.LayoutOrder
             DropdownFrameL.Padding = UDim.new(0, 4)
-            
-            local setAllVisible = function()
-              local options = DropdownFrame:GetChildren() 
-              for i=1, #options do
-                local option = options[i]
-                if option:IsA("TextButton") and option.Name:match("Option_") then
-                  option.Visible = true
-                end
-              end
-            end
-            
-            local searchDropdown = function(text)
-              local options = DropdownFrame:GetChildren()
-              for i=1, #options do
-                local option = options[i]
-                if text == "" then
-                  setAllVisible()
-                else
-                  if option:IsA("TextButton") and option.Name:match("Option_") then
-                    if option.Text:lower():match(text:lower()) then
-                      option.Visible = true
-                    else
-                      option.Visible = false
+
+            local function setAllVisible()
+                for _, option in ipairs(DropdownFrame:GetChildren()) do
+                    if option:IsA("TextButton") and option.Name:match("Option_") then
+                        option.Visible = true
                     end
-                  end
                 end
-              end
             end
-            
+
+            local function searchDropdown(text)
+                for _, option in ipairs(DropdownFrame:GetChildren()) do
+                    if option:IsA("TextButton") and option.Name:match("Option_") then
+                        if text == "" then
+                            option.Visible = true
+                        else
+                            option.Visible = option.Text:lower():match(text:lower()) ~= nil
+                        end
+                    end
+                end
+            end
+
             local open = false
-            local ToggleDropVis = function()
+            local function ToggleDropVis()
                 open = not open
                 if open then setAllVisible() end
                 DropdownOpen.Text = (open and "-" or "+")
-                DropdownFrame.Size = UDim2.new(0, 428, 0, (open and DropdownFrameL.AbsoluteContentSize.Y + 4 or 38))
+                DropdownFrame.Size = UDim2.new(
+                    0,
+                    428,
+                    0,
+                    (open and DropdownFrameL.AbsoluteContentSize.Y + 4 or 38)
+                )
             end
-            
+
             DropdownOpen.MouseButton1Click:Connect(ToggleDropVis)
-                DropdownText.Focused:Connect(function()
+            DropdownText.Focused:Connect(function()
                 if open then return end
                 ToggleDropVis()
             end)
-        
+
             local prefix = "   "
 
             DropdownText:GetPropertyChangedSignal("Text"):Connect(function()
                 if not open then return end
 
-                if not DropdownText.Text:find("^"..prefix) then
+                if not DropdownText.Text:find("^" .. prefix) then
                     DropdownText.Text = prefix .. DropdownText.Text:gsub("^%s*", "")
                     DropdownText.CursorPosition = #DropdownText.Text + 1
                     return
                 end
 
-                local searchText = DropdownText.Text:sub(#prefix + 1) 
+                local searchText = DropdownText.Text:sub(#prefix + 1)
                 searchDropdown(searchText)
             end)
 
-                
             DropdownFrameL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-              if not open then return end
-              DropdownFrame.Size = UDim2.new(0, 428, 0, (DropdownFrameL.AbsoluteContentSize.Y + 4))
+                if not open then return end
+                DropdownFrame.Size = UDim2.new(
+                    0,
+                    428,
+                    0,
+                    (DropdownFrameL.AbsoluteContentSize.Y + 4)
+                )
             end)
-            
+
             local funcs = {}
-            
-             funcs.AddOption = function(self,option)
+
+            function funcs:AddOption(option)
                 local Option = Instance.new("TextButton")
                 local OptionC = Instance.new("UICorner")
-                
-                Option.Name = "Option_"..option
+
+                Option.Name = "Option_" .. option
                 Option.Parent = DropdownFrame
                 Option.BackgroundColor3 = theme.main
                 Option.BorderSizePixel = 0
-                Option.Position = UDim2.new(0, 0, 0.328125, 0)
                 Option.Size = UDim2.new(0, 428, 0, 26)
                 Option.AutoButtonColor = false
                 Option.Font = Enum.Font.Gotham
                 Option.Text = option
                 Option.TextColor3 = theme.accent
-                Option.TextSize = 14.000
-                
+                Option.TextSize = 14
+
                 OptionC.CornerRadius = UDim.new(0, 6)
                 OptionC.Name = "OptionC"
                 OptionC.Parent = Option
-                
+
                 Option.MouseButton1Click:Connect(function()
                     ToggleDropVis()
                     callback(Option.Text)
@@ -894,33 +939,33 @@ function library:Create(title)
                     library.flags[flag] = Option.Text
                 end)
             end
-                
-                funcs.SetOptions = function(self, options)
-                  for _, v in next, DropdownFrame:GetChildren() do
+
+            function funcs:SetOptions(opts)
+                for _, v in ipairs(DropdownFrame:GetChildren()) do
                     if v.Name:match("Option_") then
-                      v:Destroy()
+                        v:Destroy()
                     end
-                  end
-                  for _,v in next, options do
-                    funcs:AddOption(v)
-                  end
                 end
-        
+                for _, v in ipairs(opts) do
+                    funcs:AddOption(v)
+                end
+            end
+
             funcs:SetOptions(options)
-            
+
             return funcs
         end
-        
-        function TabHolder:Slider(name,flag,default,min,max,precise,callback)
-            local callback = callback or function() end
-            local min = min or 1
-            local max = max or 100
-            local default = default or min
-            local precise = precise or false
+
+        function TabHolderObject:Slider(name, flag, default, min, max, precise, callback)
+            callback = callback or function() end
+            min = min or 1
+            max = max or 100
+            default = default or min
+            precise = precise or false
             library.flags[flag] = default
-            assert(name,"Name Missing")
-            assert(flag,"Flag Missing")
-            
+            assert(name, "Name Missing")
+            assert(flag, "Flag Missing")
+
             local SliderFrame = Instance.new("Frame")
             local SliderBack = Instance.new("TextButton")
             local SliderBackC = Instance.new("UICorner")
@@ -933,14 +978,14 @@ function library:Create(title)
             local SliderValue = Instance.new("TextBox")
             local MinSlider = Instance.new("TextButton")
             local AddSlider = Instance.new("TextButton")
-            
+
             SliderFrame.Name = "SliderFrame"
             SliderFrame.Parent = Section
             SliderFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            SliderFrame.BackgroundTransparency = 1.000
+            SliderFrame.BackgroundTransparency = 1
             SliderFrame.BorderSizePixel = 0
             SliderFrame.Size = UDim2.new(0, 428, 0, 38)
-            
+
             SliderBack.Name = "SliderBack"
             SliderBack.Parent = SliderFrame
             SliderBack.BackgroundColor3 = theme.main
@@ -948,201 +993,192 @@ function library:Create(title)
             SliderBack.Size = UDim2.new(0, 428, 0, 38)
             SliderBack.AutoButtonColor = false
             SliderBack.Font = Enum.Font.GothamMedium
-            SliderBack.Text = "   "..name
+            SliderBack.Text = "   " .. name
             SliderBack.TextColor3 = theme.accent
-            SliderBack.TextSize = 16.000
+            SliderBack.TextSize = 16
             SliderBack.TextXAlignment = Enum.TextXAlignment.Left
-            
+
             SliderBackC.CornerRadius = UDim.new(0, 6)
             SliderBackC.Name = "SliderBackC"
             SliderBackC.Parent = SliderBack
-            
+
             SliderBar.Name = "SliderBar"
             SliderBar.Parent = SliderBack
             SliderBar.AnchorPoint = Vector2.new(0, 0.5)
             SliderBar.BackgroundColor3 = theme.secondary
             SliderBar.BorderSizePixel = 0
-            SliderBar.Position = UDim2.new(0.369000018, 40, 0.5, 0)
+            SliderBar.Position = UDim2.new(0.369, 40, 0.5, 0)
             SliderBar.Size = UDim2.new(0, 140, 0, 12)
-            
+
             SliderBarC.CornerRadius = UDim.new(0, 4)
             SliderBarC.Name = "SliderBarC"
             SliderBarC.Parent = SliderBar
-            
+
             SliderPart.Name = "SliderPart"
             SliderPart.Parent = SliderBar
             SliderPart.BackgroundColor3 = theme.accent3
             SliderPart.BorderSizePixel = 0
             SliderPart.Size = UDim2.new(0, 0, 1, 0)
-            
+
             SliderPartC.CornerRadius = UDim.new(0, 4)
             SliderPartC.Name = "SliderPartC"
             SliderPartC.Parent = SliderPart
-            
+
             SliderValBG.Name = "SliderValBG"
             SliderValBG.Parent = SliderBack
             SliderValBG.BackgroundColor3 = theme.secondary
             SliderValBG.BorderSizePixel = 0
-            SliderValBG.Position = UDim2.new(0.883177578, 0, 0.131578952, 0)
+            SliderValBG.Position = UDim2.new(0.883, 0, 0.132, 0)
             SliderValBG.Size = UDim2.new(0, 44, 0, 28)
             SliderValBG.AutoButtonColor = false
             SliderValBG.Font = Enum.Font.Gotham
             SliderValBG.Text = ""
             SliderValBG.TextColor3 = theme.accent
-            SliderValBG.TextSize = 14.000
-            
+            SliderValBG.TextSize = 14
+
             SliderValBGC.CornerRadius = UDim.new(0, 6)
             SliderValBGC.Name = "SliderValBGC"
             SliderValBGC.Parent = SliderValBG
-            
+
             SliderValue.Name = "SliderValue"
             SliderValue.Parent = SliderValBG
             SliderValue.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            SliderValue.BackgroundTransparency = 1.000
+            SliderValue.BackgroundTransparency = 1
             SliderValue.BorderSizePixel = 0
             SliderValue.Size = UDim2.new(1, 0, 1, 0)
             SliderValue.Font = Enum.Font.Gotham
-            SliderValue.Text = "16"
+            SliderValue.Text = tostring(default)
             SliderValue.TextColor3 = theme.accent
-            SliderValue.TextSize = 18.000
-            
+            SliderValue.TextSize = 18
+
             MinSlider.Name = "MinSlider"
             MinSlider.Parent = SliderFrame
             MinSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            MinSlider.BackgroundTransparency = 1.000
+            MinSlider.BackgroundTransparency = 1
             MinSlider.BorderSizePixel = 0
-            MinSlider.Position = UDim2.new(0.296728969, 40, 0.236842096, 0)
+            MinSlider.Position = UDim2.new(0.2967, 40, 0.237, 0)
             MinSlider.Size = UDim2.new(0, 20, 0, 20)
             MinSlider.Font = Enum.Font.Gotham
             MinSlider.Text = "-"
             MinSlider.TextColor3 = theme.accent
-            MinSlider.TextSize = 24.000
+            MinSlider.TextSize = 24
             MinSlider.TextWrapped = true
-            
+
             AddSlider.Name = "AddSlider"
             AddSlider.Parent = SliderFrame
             AddSlider.AnchorPoint = Vector2.new(0, 0.5)
             AddSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            AddSlider.BackgroundTransparency = 1.000
+            AddSlider.BackgroundTransparency = 1
             AddSlider.BorderSizePixel = 0
-            AddSlider.Position = UDim2.new(0.810906529, 0, 0.5, 0)
+            AddSlider.Position = UDim2.new(0.8109, 0, 0.5, 0)
             AddSlider.Size = UDim2.new(0, 20, 0, 20)
             AddSlider.Font = Enum.Font.Gotham
             AddSlider.Text = "+"
             AddSlider.TextColor3 = theme.accent
-            AddSlider.TextSize = 24.000
+            AddSlider.TextSize = 24
             AddSlider.TextWrapped = true
-            
-            local funcs = {
-                SetValue = function(self, value)
-                    local percent = (mouse.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X
-                    if value then
+
+            local funcs = {}
+
+            function funcs:SetValue(value)
+                local percent = (mouse.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X
+                if value then
                     percent = (value - min) / (max - min)
-                    end
-                    percent = math.clamp(percent, 0, 1)
-                    if precise then
+                end
+                percent = math.clamp(percent, 0, 1)
+                if precise then
                     value = value or tonumber(string.format("%.1f", tostring(min + (max - min) * percent)))
-                    else
+                else
                     value = value or math.floor(min + (max - min) * percent)
-                    end
-                    library.flags[flag] = tonumber(value)
-                    SliderValue.Text = tostring(value)
-                    SliderPart.Size = UDim2.new(percent, 0, 1, 0)
-                    callback(tonumber(value))
-            end,
-            
-            SetMin = function(self, newMin)
+                end
+                library.flags[flag] = tonumber(value)
+                SliderValue.Text = tostring(value)
+                SliderPart.Size = UDim2.new(percent, 0, 1, 0)
+                callback(tonumber(value))
+            end
+
+            function funcs:SetMin(newMin)
                 min = newMin or min
-            end,
-            
-            SetMax = function(self, newMax)
+            end
+
+            function funcs:SetMax(newMax)
                 max = newMax or max
-            end,
-            }
+            end
 
             MinSlider.MouseButton1Click:Connect(function()
-              local currentValue = library.flags[flag]
-              currentValue = math.clamp(currentValue - 1, min, max)
-              funcs:SetValue(currentValue)
+                local currentValue = library.flags[flag]
+                currentValue = math.clamp(currentValue - 1, min, max)
+                funcs:SetValue(currentValue)
             end)
 
             AddSlider.MouseButton1Click:Connect(function()
-              local currentValue = library.flags[flag]
-              currentValue = math.clamp(currentValue + 1, min, max)
-              funcs:SetValue(currentValue)
+                local currentValue = library.flags[flag]
+                currentValue = math.clamp(currentValue + 1, min, max)
+                funcs:SetValue(currentValue)
             end)
-        
+
             funcs:SetValue(default)
 
-            local dragging, boxFocused, allowed = false, false, {
-              [""] = true,
-              ["-"] = true
+            local dragging, boxFocused
+            local allowed = {
+                [""] = true,
+                ["-"] = true,
             }
 
             SliderBar.InputBegan:Connect(function(input)
-              if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                funcs:SetValue()
-                dragging = true
-              end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    funcs:SetValue()
+                    dragging = true
+                end
             end)
 
             game.UserInputService.InputEnded:Connect(function(input)
-              if dragging and input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-              end
+                if dragging and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                end
             end)
 
             game.UserInputService.InputChanged:Connect(function(input)
-              if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                funcs:SetValue()
-              end
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    funcs:SetValue()
+                end
             end)
 
             SliderValue.Focused:Connect(function()
-              boxFocused = true
+                boxFocused = true
             end)
 
             SliderValue.FocusLost:Connect(function()
-              boxFocused = false
-              if SliderValue.Text == "" then
-                funcs:SetValue(default)
-              end
+                boxFocused = false
+                if SliderValue.Text == "" then
+                    funcs:SetValue(default)
+                end
             end)
 
             SliderValue:GetPropertyChangedSignal("Text"):Connect(function()
-              if not boxFocused then return end
-              SliderValue.Text = SliderValue.Text:gsub("%D+", "")
-              
-              local text = SliderValue.Text
-              
-              if not tonumber(text) then
-                SliderValue.Text = SliderValue.Text:gsub('%D+', '')
-              elseif not allowed[text] then
-                if tonumber(text) > max then
-                  text = max
-                  SliderValue.Text = tostring(max)
+                if not boxFocused then return end
+                SliderValue.Text = SliderValue.Text:gsub("%D+", "")
+
+                local text = SliderValue.Text
+                if not tonumber(text) then
+                    SliderValue.Text = SliderValue.Text:gsub("%D+", "")
+                elseif not allowed[text] then
+                    if tonumber(text) > max then
+                        text = max
+                        SliderValue.Text = tostring(max)
+                    end
+                    funcs:SetValue(tonumber(text))
                 end
-                funcs:SetValue(tonumber(text))
-              end
             end)
+
             return funcs
         end
-		return TabHolder
-	end
-	return Holder
+
+        return TabHolderObject
+    end
+
+    return Holder
 end
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 local keys, network = loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak-dumper"))()
@@ -1151,10 +1187,9 @@ local tagUtils = require(game:GetService("ReplicatedStorage").Tag.TagUtils)
 
 local oldIsPointInTag = tagUtils.isPointInTag
 tagUtils.isPointInTag = function(point, tag)
-    if tag == "NoRagdoll" or tag == "NoFallDamage" or tag == "NoParachute" then 
+    if tag == "NoRagdoll" or tag == "NoFallDamage" or tag == "NoParachute" then
         return true
     end
-    
     return oldIsPointInTag(point, tag)
 end
 
@@ -1163,58 +1198,52 @@ setupvalue(network.FireServer, 1, function(key, ...)
     if key == keys.Damage then
         return
     end
-
     return oldFireServer(key, ...)
 end)
 
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local Workspace        = game:GetService("Workspace")
+local ReplicatedStorage= game:GetService("ReplicatedStorage")
+local HttpService      = game:GetService("HttpService")
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
 
-
-local JOIN_TEAM_STABLE_KEY = keys.JoinTeam
-local ARREST_STABLE_KEY = keys.Arrest        
+local POP_TIRES_STABLE_KEY     = keys.PopTires
+local JOIN_TEAM_STABLE_KEY     = keys.JoinTeam
+local ARREST_STABLE_KEY        = keys.Arrest
 local VEHICLE_ENTRY_STABLE_KEY = keys.EnterCar
-local VEHICLE_EXIT_STABLE_KEY = keys.ExitCar   
-local VEHICLE_EJECT_STABLE_KEY = keys.Eject  
-local redeemCode = keys.RedeemCode
+local VEHICLE_EXIT_STABLE_KEY  = keys.ExitCar
+local VEHICLE_EJECT_STABLE_KEY = keys.Eject
+local redeemCode               = keys.RedeemCode
 
+local HOVER_HEIGHT             = 700       
+local MIN_HEIGHT_ABOVE_GROUND  = 0
+local DROP_OFFSET_STUDS        = 5
+local FLY_SPEED_CAR            = 450
+local FLY_SPEED_FOOT           = 100
+local ROOF_RAYCAST_HEIGHT      = 150
+local JAIL_TELEPORT_DIST       = 10000
+local TELEPORT_JUMP_THRESHOLD  = 500
 
-print(ARREST_STABLE_KEY)
+local MAX_HORIZONTAL_SPEED     = 1000
+local HOVER_ADJUST_SPEED       = 50
+local VERTICAL_SNAP_THRESHOLD  = 5
 
+local MAX_VEHICLE_RETRIES      = 5
+local MAX_ARREST_RETRIES       = 3
+local STUCK_TIMEOUT            = 5
+local RETRY_COOLDOWN           = 1
 
-local HOVER_HEIGHT = 700
-local MIN_HEIGHT_ABOVE_GROUND = 0
-local DROP_OFFSET_STUDS = 0
-local FLY_SPEED_CAR = 450
-local FLY_SPEED_FOOT = 100      
-local ROOF_RAYCAST_HEIGHT = 150    
-local JAIL_TELEPORT_DIST = 10000  
-local TELEPORT_JUMP_THRESHOLD = 500 
+local COVERAGE_CHECK_INTERVAL  = 0.1
+local MAX_COVERED_TIME         = 5
 
-local MAX_HORIZONTAL_SPEED = 1000    
-local HOVER_ADJUST_SPEED = 50        
-local VERTICAL_SNAP_THRESHOLD = 5    
-
-local MAX_VEHICLE_RETRIES = 5
-local MAX_ARREST_RETRIES = 3
-local STUCK_TIMEOUT = 5           
-local RETRY_COOLDOWN = 1          
-
-local COVERAGE_CHECK_INTERVAL = 0.1
-local MAX_COVERED_TIME = 5 
-
-local ARREST_CHASE_RANGE = 20
-local ARREST_LOOP_DELAY = 0.1
-local SHOOT_COOLDOWN = 0.15
-
+local ARREST_CHASE_RANGE       = 20
+local ARREST_LOOP_DELAY        = 0.1
+local SHOOT_COOLDOWN           = 0.15
 
 local ALLOWED_VEHICLES = {
-    ["Jeep"] = true,
-    ["Camaro"] = true,
+    Jeep   = true,
+    Camaro = true,
 }
 
 local SPAWN_PATHS = {
@@ -1224,24 +1253,24 @@ local SPAWN_PATHS = {
     },
     [Vector3.new(-1169, 19, -1583)] = {
         Vector3.new(-1173, 19, -1584),
-        Vector3.new(-1171, 21, -1627), 
+        Vector3.new(-1171, 21, -1627),
     },
     [Vector3.new(-1177, 19, -1579)] = {
         Vector3.new(-1173, 20, -1581),
-        Vector3.new(-1171, 21, -1627), 
+        Vector3.new(-1171, 21, -1627),
     },
     [Vector3.new(-1165, 19, -1580)] = {
         Vector3.new(-1173, 20, -1581),
-        Vector3.new(-1171, 21, -1627), 
+        Vector3.new(-1171, 21, -1627),
     },
     [Vector3.new(-1173, 39, -1582)] = {
         Vector3.new(-1159, 40, -1581),
-        Vector3.new(-1154, 40, -1566), 
-        Vector3.new(-1130, 41, -1566), 
+        Vector3.new(-1154, 40, -1566),
+        Vector3.new(-1130, 41, -1566),
     },
     [Vector3.new(-1121, 19, -1586)] = {
         Vector3.new(-1173, 20, -1587),
-        Vector3.new(-1171, 21, -1627), 
+        Vector3.new(-1171, 21, -1627),
     },
     [Vector3.new(-1263, 19, -1549)] = {
         Vector3.new(-1263, 20, -1537),
@@ -1252,9 +1281,9 @@ local SPAWN_PATHS = {
     },
     [Vector3.new(764, 20, -3346)] = {
         Vector3.new(763, 21, -3341),
-        Vector3.new(780, 21, -3340), 
-        Vector3.new(782, 21, -3348), 
-        Vector3.new(807, 22, -3337), 
+        Vector3.new(780, 21, -3340),
+        Vector3.new(782, 21, -3348),
+        Vector3.new(807, 22, -3337),
     },
     [Vector3.new(742, 39, 1133)] = {
         Vector3.new(739, 40, 1134),
@@ -1267,36 +1296,36 @@ local SPAWN_PATHS = {
     },
 }
 
-local SPAWN_PATH_TOLERANCE = 5 
+local SPAWN_PATH_TOLERANCE = 5
 
-local LocalPlayer = Players.LocalPlayer
-local Remote = nil
-local KeyMap = {}
-local AutoArrestEnabled = false
-local CurrentVehicle = nil
-local ActionInProgress = false
-local MainLoopConnection = nil
-local NoclipConnection = nil
+local LocalPlayer         = Players.LocalPlayer
+local Remote              = nil
+local KeyMap              = {}
+local AutoArrestEnabled   = false
+local CurrentVehicle      = nil
+local ActionInProgress    = false
+local MainLoopConnection  = nil
 local TargetPositionHistory = {}
-local ExitedCarRef = nil
+local ExitedCarRef        = nil
 
-local VehicleRetryCount = 0
-local ArrestRetryCount = 0
-local LastActionTime = 0
-local StuckCheckPosition = nil
+local VehicleRetryCount   = 0
+local ArrestRetryCount    = 0
+local LastActionTime      = 0
+local StuckCheckPosition  = nil
 
-local oldRayCast = nil
-local shootTarget = nil
+local oldRayCast          = nil
+local shootTarget         = nil
 
-local CoverageCheckConnection = nil
+local CoverageThread      = nil
 local TargetCoveredStartTime = nil
-local SelfCoveredStartTime = nil
-local IsExecutingSpawnPath = false
+local SelfCoveredStartTime   = nil
+local IsExecutingSpawnPath   = false
 
 local v3new = Vector3.new
 local cfNew = CFrame.new
 local heartbeat = RunService.Heartbeat
-local stepped = RunService.Stepped
+local stepped   = RunService.Stepped
+
 
 do
     local found = false
@@ -1318,11 +1347,19 @@ do
             end
         end
     end
-    if not found then warn("Debug: KEYS NOT FOUND - SCRIPT WILL LIKELY FAIL") end
+    if not found then
+        warn("Debug: KEYS NOT FOUND - SCRIPT WILL LIKELY FAIL")
+    end
 end
 
-local function getHRP() return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") end
-local function getHumanoid() return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") end
+
+local function getHRP()
+    return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid()
+    return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+end
 
 local function killVelocity(part)
     if part then
@@ -1359,7 +1396,7 @@ end
 
 local function hasPlayerEscaped(player)
     if not player then return true end
-    
+
     local hasEscapedValue = player:FindFirstChild("HasEscaped")
     if hasEscapedValue then
         if hasEscapedValue:IsA("BoolValue") then
@@ -1368,12 +1405,12 @@ local function hasPlayerEscaped(player)
             return hasEscapedValue.Value
         end
     end
-    
+
     local escapedAttr = player:GetAttribute("HasEscaped")
     if escapedAttr ~= nil then
         return escapedAttr
     end
-    
+
     return true
 end
 
@@ -1381,26 +1418,25 @@ local function getSafeHeight(position)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, CurrentVehicle}
-    
+
     local ray = Workspace:Raycast(position, Vector3.new(0, -500, 0), raycastParams)
-    
     if ray then
         return math.max(ray.Position.Y + MIN_HEIGHT_ABOVE_GROUND, position.Y)
     end
-    
+
     return position.Y
 end
 
 local function isCovered(position, targetPlayer)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    
+
     local excludeList = {LocalPlayer.Character}
-    
+
     if targetPlayer and targetPlayer.Character then
         table.insert(excludeList, targetPlayer.Character)
     end
-    
+
     local vFolder = Workspace:FindFirstChild("Vehicles")
     if vFolder then
         for _, vehicle in ipairs(vFolder:GetChildren()) do
@@ -1410,47 +1446,44 @@ local function isCovered(position, targetPlayer)
 
     raycastParams.FilterDescendantsInstances = excludeList
     raycastParams.IgnoreWater = true
-    
+
     local startPosition = position + Vector3.new(0, 5, 0)
     local ray = Workspace:Raycast(startPosition, Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0), raycastParams)
-
     return ray ~= nil
 end
-
 
 local function amICovered()
     local root = getHRP()
     if not root then return false end
-    
+
     local partsToExclude = {LocalPlayer.Character}
-    
+
     if CurrentVehicle then
         table.insert(partsToExclude, CurrentVehicle)
     end
-    
+
     if ExitedCarRef then
         table.insert(partsToExclude, ExitedCarRef)
     end
-    
+
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = partsToExclude
     raycastParams.IgnoreWater = true
-    
+
     local startPosition = root.Position + Vector3.new(0, 2, 0)
     local ray = Workspace:Raycast(startPosition, Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0), raycastParams)
-    
+
     return ray ~= nil
 end
 
-
 local function flyTowards3D(targetPos, speed, moverPart)
     if not moverPart or not moverPart.Parent then return end
-    
+
     local currentPos = moverPart.Position
     local direction = (targetPos - currentPos)
     local dist = direction.Magnitude
-    
+
     if dist > 1 then
         local unitDir = direction.Unit
         moverPart.AssemblyLinearVelocity = unitDir * speed
@@ -1462,11 +1495,11 @@ end
 local function findSpawnPath()
     local root = getHRP()
     if not root then return nil end
-    
+
     local myPos = root.Position
     local closestPath = nil
     local closestDist = SPAWN_PATH_TOLERANCE
-    
+
     for spawnPos, waypoints in pairs(SPAWN_PATHS) do
         local dist = (v3new(myPos.X, spawnPos.Y, myPos.Z) - spawnPos).Magnitude
         if dist < closestDist then
@@ -1474,34 +1507,23 @@ local function findSpawnPath()
             closestPath = waypoints
         end
     end
-    
+
     return closestPath
 end
 
 local function safeVerticalTeleport(targetPos)
     local root = getHRP()
-    local hum = getHumanoid()
+    local hum  = getHumanoid()
     if not root or not hum then return end
-    
-    if amICovered() then
-        local spawnPath = findSpawnPath()
-        if spawnPath then
-            executeSpawnPath(spawnPath)
-            task.wait(1)
-            return
-        end
-    end
-    
+
     local moverPart = CurrentVehicle and CurrentVehicle.PrimaryPart or root
-    
     if not moverPart or not moverPart.Parent then return end
-    
+
     local currentCFrame = moverPart.CFrame
     local targetY = targetPos.Y
-    
+
     if math.abs(currentCFrame.Position.Y - targetY) > VERTICAL_SNAP_THRESHOLD then
         local newCFrame = cfNew(currentCFrame.X, targetY, currentCFrame.Z) * currentCFrame.Rotation
-        
         if CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent and hum.Sit then
             CurrentVehicle:SetPrimaryPartCFrame(newCFrame)
         else
@@ -1511,20 +1533,17 @@ local function safeVerticalTeleport(targetPos)
     end
 end
 
-
-
 local function executeSpawnPath(waypoints)
     if IsExecutingSpawnPath then return end
     IsExecutingSpawnPath = true
-    
+
     local root = getHRP()
     local hum = getHumanoid()
-    if not root or not hum then 
+    if not root or not hum then
         IsExecutingSpawnPath = false
-        return 
+        return
     end
-    
-    
+
     local noclipConn = stepped:Connect(function()
         if LocalPlayer.Character then
             for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -1534,35 +1553,35 @@ local function executeSpawnPath(waypoints)
             end
         end
     end)
-    
-    for i, waypoint in ipairs(waypoints) do
+
+    for _, waypoint in ipairs(waypoints) do
         local startTime = tick()
         local WAYPOINT_TIMEOUT = 10
-        
+
         while true do
             root = getHRP()
             if not root or not root.Parent then break end
-            
+
             local dist = (root.Position - waypoint).Magnitude
             if dist < 5 then break end
             if (tick() - startTime) > WAYPOINT_TIMEOUT then break end
-            
+
             local direction = (waypoint - root.Position).Unit
             root.AssemblyLinearVelocity = direction * FLY_SPEED_FOOT
-            
+
             task.wait()
         end
-        
+
         root = getHRP()
         if root then
             killVelocity(root)
         end
     end
-    
+
     if noclipConn then
         noclipConn:Disconnect()
     end
-    
+
     if LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
             if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
@@ -1570,12 +1589,12 @@ local function executeSpawnPath(waypoints)
             end
         end
     end
-    
+
     root = getHRP()
     if root then
         safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
     end
-    
+
     IsExecutingSpawnPath = false
 end
 
@@ -1589,12 +1608,12 @@ end
 local function canEscapeCover()
     local root = getHRP()
     if not root then return false end
-    
+
     local spawnPath = findSpawnPath()
     if spawnPath then
         return true
     end
-    
+
     local checkDirections = {
         Vector3.new(1, 0, 0),
         Vector3.new(-1, 0, 0),
@@ -1605,29 +1624,31 @@ local function canEscapeCover()
         Vector3.new(1, 0, -1).Unit,
         Vector3.new(-1, 0, -1).Unit,
     }
-    
+
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, CurrentVehicle}
     raycastParams.IgnoreWater = true
-    
+
     for _, dir in ipairs(checkDirections) do
         local checkPos = root.Position + (dir * 50)
-        local upRay = Workspace:Raycast(checkPos + Vector3.new(0, 1, 0), Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0), raycastParams)
+        local upRay = Workspace:Raycast(
+            checkPos + Vector3.new(0, 1, 0),
+            Vector3.new(0, ROOF_RAYCAST_HEIGHT, 0),
+            raycastParams
+        )
         if not upRay then
             return true
         end
     end
-    
+
     return false
 end
-
-
 
 local function flyToLocation(targetPos, isCar)
     local root = getHRP()
     if not root then return end
-    
+
     if amICovered() then
         local spawnPath = findSpawnPath()
         if spawnPath then
@@ -1636,36 +1657,36 @@ local function flyToLocation(targetPos, isCar)
             return
         end
     end
-    
+
     local moverPart = root
     local speed = isCar and FLY_SPEED_CAR or FLY_SPEED_FOOT
-    
+
     if isCar and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent then
         moverPart = CurrentVehicle.PrimaryPart
     elseif isCar then
         return
     end
-    
+
     if not moverPart or not moverPart.Parent then return end
-    
+
     local currentPos = moverPart.Position
     local distXZ = (v3new(currentPos.X, 0, currentPos.Z) - v3new(targetPos.X, 0, targetPos.Z)).Magnitude
     local targetY = HOVER_HEIGHT
 
     local desiredVelocityX = 0
     local desiredVelocityZ = 0
-    
+
     if distXZ > 5 then
         local directionXZ = (v3new(targetPos.X, 0, targetPos.Z) - v3new(currentPos.X, 0, currentPos.Z)).Unit
         local horizontalSpeed = math.min(speed, MAX_HORIZONTAL_SPEED)
         desiredVelocityX = directionXZ.X * horizontalSpeed
         desiredVelocityZ = directionXZ.Z * horizontalSpeed
     end
-    
+
     local yError = targetY - currentPos.Y
     local verticalSpeed = yError * 5 + math.sign(yError) * 10
     local desiredVelocityY = math.clamp(verticalSpeed, -HOVER_ADJUST_SPEED, HOVER_ADJUST_SPEED)
-    
+
     moverPart.AssemblyLinearVelocity = v3new(desiredVelocityX, desiredVelocityY, desiredVelocityZ)
 
     if math.abs(yError) > VERTICAL_SNAP_THRESHOLD then
@@ -1685,8 +1706,8 @@ local function cleanupState()
     if CurrentVehicle then
         if not CurrentVehicle.PrimaryPart or not CurrentVehicle.Parent then
             CurrentVehicle = nil
-            VehicleRetryCount = VehicleRetryCount + 1
-            
+            VehicleRetryCount += 1
+
             if hum.Sit then
                 local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
                 if key then Remote:FireServer(key) end
@@ -1701,30 +1722,30 @@ local function cleanupState()
     if hum.Sit and not CurrentVehicle then
         local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
         if key then Remote:FireServer(key) end
-        task.wait(0.05) 
+        task.wait(0.05)
         safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
         ActionInProgress = false
         return
     end
-    
+
     if StuckCheckPosition and ActionInProgress then
         local dist = (root.Position - StuckCheckPosition).Magnitude
         if dist < 1 and (tick() - LastActionTime) > STUCK_TIMEOUT then
             ActionInProgress = false
             CurrentVehicle = nil
-            
+
             if hum.Sit then
                 local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
                 if key then Remote:FireServer(key) end
-                task.wait(0.05) 
+                task.wait(0.05)
             end
-            
+
             safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
             StuckCheckPosition = nil
             return
         end
     end
-    
+
     StuckCheckPosition = root.Position
     LastActionTime = tick()
 end
@@ -1733,12 +1754,12 @@ local function getClosestVehicleToPlayer(player)
     if not player or not player.Character then return nil end
     local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
     if not playerRoot then return nil end
-    
+
     local vFolder = Workspace:FindFirstChild("Vehicles")
     if not vFolder then return nil end
-    
-    local closest, dist = nil, 20
-    
+
+    local closest, dist = nil, 120
+
     for _, vehicle in ipairs(vFolder:GetChildren()) do
         if vehicle ~= ExitedCarRef then
             local prim = vehicle.PrimaryPart
@@ -1751,7 +1772,7 @@ local function getClosestVehicleToPlayer(player)
             end
         end
     end
-    
+
     return closest
 end
 
@@ -1759,15 +1780,17 @@ local function getTargetVehiclePart(player)
     if not player or not player.Character then return nil end
     local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
     if not playerRoot then return nil end
-    
+
     local vFolder = Workspace:FindFirstChild("Vehicles")
     if not vFolder then return nil end
-    
+
     local closest, dist = nil, 30
-    
+
     for _, v in ipairs(vFolder:GetChildren()) do
         if v ~= ExitedCarRef then
-            local part = v.PrimaryPart or (v:FindFirstChild("Body") and v.Body:FindFirstChild("Vehicle")) or v:FindFirstChildWhichIsA("BasePart")
+            local part = v.PrimaryPart
+                or (v:FindFirstChild("Body") and v.Body:FindFirstChild("Vehicle"))
+                or v:FindFirstChildWhichIsA("BasePart")
             if part then
                 local d = (part.Position - playerRoot.Position).Magnitude
                 if d < dist then
@@ -1777,7 +1800,7 @@ local function getTargetVehiclePart(player)
             end
         end
     end
-    
+
     return closest
 end
 
@@ -1792,7 +1815,7 @@ local function getClosestVehicle()
         if ALLOWED_VEHICLES[vehicle.Name] then
             local seat = vehicle:FindFirstChild("Seat")
             local prim = vehicle.PrimaryPart
-            
+
             if seat and prim and prim.Parent then
                 local isAvailable = not vehicle:GetAttribute("Locked") and not vehicle:GetAttribute("VehicleHasDriver")
                 if isAvailable then
@@ -1805,22 +1828,23 @@ local function getClosestVehicle()
             end
         end
     end
-    
+
     return closest
 end
 
 local function enterVehicleRoutine(vehicle)
     ActionInProgress = true
+
     local root = getHRP()
     local prim = vehicle.PrimaryPart
-    
+
     if not root or not prim or not prim.Parent then
         ActionInProgress = false
         CurrentVehicle = nil
-        VehicleRetryCount = VehicleRetryCount + 1
+        VehicleRetryCount += 1
         return false
     end
-    
+
     if amICovered() then
         local spawnPath = findSpawnPath()
         if spawnPath then
@@ -1835,49 +1859,53 @@ local function enterVehicleRoutine(vehicle)
 
     safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
 
-    local targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
     local t = tick()
-    while (v3new(root.Position.X, 0, root.Position.Z) - v3new(prim.Position.X, 0, prim.Position.Z)).Magnitude > 10 and (tick() - t) < 10 do
+    while (v3new(root.Position.X, 0, root.Position.Z) - v3new(prim.Position.X, 0, prim.Position.Z)).Magnitude > 10
+        and (tick() - t) < 10 do
+
         prim = vehicle.PrimaryPart
         if not prim or not prim.Parent then
             ActionInProgress = false
             CurrentVehicle = nil
-            VehicleRetryCount = VehicleRetryCount + 1
+            VehicleRetryCount += 1
             return false
         end
-        targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
+
+        local targetPosXZ = v3new(prim.Position.X, HOVER_HEIGHT, prim.Position.Z)
         flyToLocation(targetPosXZ, false)
         task.wait()
+        root = getHRP()
+        if not root then break end
     end
-    
+
     prim = vehicle.PrimaryPart
     if not prim or not prim.Parent then
         ActionInProgress = false
         CurrentVehicle = nil
-        VehicleRetryCount = VehicleRetryCount + 1
+        VehicleRetryCount += 1
         return false
     end
-    
+
     local safeEntryHeight = math.max(prim.Position.Y + DROP_OFFSET_STUDS, getSafeHeight(prim.Position))
     safeVerticalTeleport(v3new(prim.Position.X, safeEntryHeight, prim.Position.Z))
-    
+
     local key = KeyMap[VEHICLE_ENTRY_STABLE_KEY]
     if key then
-        for i = 1, 5 do
+        for _ = 1, 5 do
             if not vehicle.PrimaryPart or not vehicle.PrimaryPart.Parent then
                 ActionInProgress = false
                 CurrentVehicle = nil
-                VehicleRetryCount = VehicleRetryCount + 1
+                VehicleRetryCount += 1
                 return false
             end
             Remote:FireServer(key, vehicle, vehicle.Seat)
             if getHumanoid() and getHumanoid().Sit then break end
-            task.wait(0.1) 
+            task.wait(0.1)
         end
     end
-    
-    task.wait(0.1) 
-    
+
+    task.wait(0.1)
+
     local hum = getHumanoid()
     if hum and hum.Sit and vehicle.PrimaryPart and vehicle.PrimaryPart.Parent then
         CurrentVehicle = vehicle
@@ -1887,7 +1915,7 @@ local function enterVehicleRoutine(vehicle)
         return true
     else
         CurrentVehicle = nil
-        VehicleRetryCount = VehicleRetryCount + 1
+        VehicleRetryCount += 1
         root = getHRP()
         if root then
             safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
@@ -1900,12 +1928,12 @@ end
 local function exitVehicleRoutine()
     local hum = getHumanoid()
     if not CurrentVehicle or not hum or not hum.Sit then return end
-    
+
     local key = KeyMap[VEHICLE_EXIT_STABLE_KEY]
     if key then
         Remote:FireServer(key)
     end
-    task.wait() 
+    task.wait()
     ExitedCarRef = CurrentVehicle
     CurrentVehicle = nil
 end
@@ -1913,47 +1941,44 @@ end
 local function getBestTarget()
     local root = getHRP()
     if not root then return nil end
-    
+
     local validTargets = {}
     local rootPos = root.Position
-    
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Team and (p.Team.Name == "Criminal" or p.Team.Name == "Prisoner") then
             if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
                 local tRoot = p.Character.HumanoidRootPart
-                local tHum = p.Character.Humanoid
+                local tHum  = p.Character.Humanoid
                 local currentPos = tRoot.Position
-                
-                if not hasPlayerEscaped(p) then continue end
-                
+
+                if not hasPlayerEscaped(p) then
+                    continue
+                end
+
                 local isTeleporting = false
                 local lastPos = TargetPositionHistory[p]
-                
                 if lastPos then
                     local jumpDistance = (currentPos - lastPos).Magnitude
                     if jumpDistance > TELEPORT_JUMP_THRESHOLD then
                         isTeleporting = true
                     end
                 end
-                
                 TargetPositionHistory[p] = currentPos
-                
+
                 if not isTeleporting then
                     local dist = (rootPos - currentPos).Magnitude
-                    
                     if dist <= JAIL_TELEPORT_DIST then
                         if not isCovered(currentPos, p) then
                             local isAlive = tHum.Health > 0
-                            local isSafe = p.Character:FindFirstChild("ForceField") ~= nil
-                            
+                            local isSafe  = p.Character:FindFirstChild("ForceField") ~= nil
                             if isAlive and not isSafe then
                                 local bounty = getPlayerBounty(p.Name)
-                                
                                 table.insert(validTargets, {
-                                    player = p,
-                                    distance = dist,
-                                    bounty = bounty,
-                                    isCriminal = p.Team.Name == "Criminal"
+                                    player     = p,
+                                    distance   = dist,
+                                    bounty     = bounty,
+                                    isCriminal = (p.Team.Name == "Criminal"),
                                 })
                             end
                         end
@@ -1964,21 +1989,21 @@ local function getBestTarget()
     end
 
     table.sort(validTargets, function(a, b)
-        if a.bounty ~= b.bounty then return a.bounty > b.bounty end
-        if a.isCriminal ~= b.isCriminal then return a.isCriminal end
+        if a.bounty ~= b.bounty then
+            return a.bounty > b.bounty
+        end
+        if a.isCriminal ~= b.isCriminal then
+            return a.isCriminal
+        end
         return a.distance < b.distance
     end)
-    
+
     if #validTargets > 0 then
-        local best = validTargets[1]
-        return best.player
+        return validTargets[1].player
     end
-    
+
     return nil
 end
-
-
-
 
 local function shoot()
     local gun = require(ReplicatedStorage.Game.ItemSystem.ItemSystem).GetLocalEquipped()
@@ -1991,9 +2016,9 @@ local function setupSilentAim(targetPart)
     if not oldRayCast then
         oldRayCast = require(ReplicatedStorage.Module.RayCast).RayIgnoreNonCollideWithIgnoreList
     end
-    
+
     shootTarget = targetPart
-    
+
     require(ReplicatedStorage.Module.RayCast).RayIgnoreNonCollideWithIgnoreList = function(...)
         local a = {oldRayCast(...)}
         local e = getfenv(2)
@@ -2015,263 +2040,146 @@ end
 local function getVehicleBackPosition(targetVehicle, targetRoot)
     if not targetVehicle or not targetVehicle.PrimaryPart then return nil end
     if not targetRoot then return nil end
-    
+
     local vehiclePart = targetVehicle.PrimaryPart
     local vehicleCFrame = vehiclePart.CFrame
-    
+
     local lookVector = vehicleCFrame.LookVector
     local backOffset = -lookVector * 8
-    
+
     local backPosition = vehiclePart.Position + backOffset
-    
     return backPosition, lookVector
 end
 
 local function ramTargetVehicle(target)
     if not CurrentVehicle or not CurrentVehicle.PrimaryPart then return false end
-    
+
     local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not tRoot then return false end
-    
+
     local targetVehicle = getClosestVehicleToPlayer(target)
     if not targetVehicle or not targetVehicle.PrimaryPart then return false end
-    
+
     local backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
     if not backPos then return false end
-    
+
     local myVehicle = CurrentVehicle
     local myPart = myVehicle.PrimaryPart
-    
     local ramStartTime = tick()
     local RAM_DURATION = 0.5
     local RAM_SPEED = 300
-    
+
     while (tick() - ramStartTime) < RAM_DURATION do
         if not myVehicle.PrimaryPart or not myVehicle.PrimaryPart.Parent then break end
         if not targetVehicle.PrimaryPart or not targetVehicle.PrimaryPart.Parent then break end
 
         local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
-        if not tireHealth or tireHealth <= 0 then
+        if tireHealth and tireHealth <= 0 then
             break
         end
-        
+
         tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
         if not tRoot then break end
-        
+
         backPos, targetLookVector = getVehicleBackPosition(targetVehicle, tRoot)
         if not backPos then break end
-        
+
         myPart = myVehicle.PrimaryPart
-        
+
         local pushInOffset = targetLookVector * -3
         local targetRamPos = backPos + pushInOffset
-        
+
         local targetCFrame = CFrame.lookAt(myPart.Position, backPos)
         myVehicle:SetPrimaryPartCFrame(targetCFrame)
-        
+
         local direction = (targetRamPos - myPart.Position).Unit
         myPart.AssemblyLinearVelocity = direction * RAM_SPEED
-        
+
         task.wait()
     end
-    
+
     if myVehicle and myVehicle.PrimaryPart then
         killVelocity(myVehicle.PrimaryPart)
     end
-    
+
     return true
 end
 
-local function shootTargetVehicle(target)
-    local folder = LocalPlayer:FindFirstChild("Folder")
-    if not folder then return end
-    
-    local pistol = folder:FindFirstChild("Pistol")
-    if not pistol then return end
-    
-    local vehiclePart = getTargetVehiclePart(target)
-    if not vehiclePart then return end
-    
-    local targetVehicle = vehiclePart.Parent
-    if not targetVehicle then return end
-    
-    pistol.InventoryEquipRemote:FireServer(true)
-    task.wait(0.1) 
-    
-    local reloadRemote = pistol:FindFirstChild("Reload")
-    
-    local currentAmmo = pistol:GetAttribute("AmmoCurrentLocal")
-    if not currentAmmo or currentAmmo <= 0 then
-        if reloadRemote and reloadRemote:IsA("RemoteEvent") then
-            reloadRemote:FireServer()
-            task.wait(0.3) 
-        end
+local function getPlayersVehicle(player)
+    if not player or not player.Character then return nil end
+    local tHum = player.Character:FindFirstChild("Humanoid")
+    if tHum and tHum.SeatPart and tHum.SeatPart.Parent then
+        return tHum.SeatPart.Parent
     end
-    
-    setupSilentAim(vehiclePart)
-    
-    local shootStartTime = tick()
-    local MAX_SHOOT_TIME = 10
-    
-    while (tick() - shootStartTime) < MAX_SHOOT_TIME do
-        local targetVehicle = getClosestVehicleToPlayer(target)
-
-        local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
-        if not tireHealth or tireHealth <= 0 then
-            break
-        end
-        
-        local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
-        local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tHum or not tRoot then
-            break
-        end
-        
-        local vehiclePos = targetVehicle.PrimaryPart and targetVehicle.PrimaryPart.Position
-        if not vehiclePos then break end
-        
-        local distToVehicle = (tRoot.Position - vehiclePos).Magnitude
-        if distToVehicle > 10 then
-            break 
-        end
-        
-        currentAmmo = pistol:GetAttribute("AmmoCurrentLocal")
-        if currentAmmo and currentAmmo > 0 then
-            shoot()
-        else
-            if reloadRemote and reloadRemote:IsA("RemoteEvent") then
-                reloadRemote:FireServer()
-                task.wait(0.3) 
-            end
-        end
-        
-        task.wait(SHOOT_COOLDOWN) 
-    end
-    
-    resetSilentAim()
-    
-    pistol.InventoryEquipRemote:FireServer(false)
-    task.wait(0.1)
+    return getClosestVehicleToPlayer(player)
 end
 
+local lastVehicleShotTime = 0
 
+local function stepShootVehicle(target)
+    if SHOOT_COOLDOWN <= 0 then return end
+    if tick() - lastVehicleShotTime < SHOOT_COOLDOWN then return end
 
-local function MainLoop()
-    if ActionInProgress then return end
-    if IsExecutingSpawnPath then return end
-    
-    local hum = getHumanoid()
-    local root = getHRP()
-    
-    if not root or not hum or hum.Health <= 0 then
-        ActionInProgress = false
-        CurrentVehicle = nil
-        ExitedCarRef = nil
-        VehicleRetryCount = 0
-        ArrestRetryCount = 0
-        StuckCheckPosition = nil
-        TargetPositionHistory = {}
-        SelfCoveredStartTime = nil
-        TargetCoveredStartTime = nil
+    local folder = LocalPlayer:FindFirstChild("Folder")
+    if not folder then return end
+    local pistol = folder:FindFirstChild("Pistol")
+    if not pistol then return end
+
+    local vehicle = getPlayersVehicle(target)
+    if not vehicle or not vehicle.PrimaryPart then return end
+
+    local tireHealth = vehicle:GetAttribute("VehicleTireHealth")
+    if tireHealth and tireHealth <= 0 then
         return
     end
-    
-    cleanupState()
-    
-    if amICovered() then
-        local spawnPath = findSpawnPath()
-        if spawnPath then
-            executeSpawnPath(spawnPath)
-            task.wait(1)
-            return
-        elseif not canEscapeCover() then
-            killSelf()
-            return
+
+    if not pistol:GetAttribute("Equipped") then
+        pistol.InventoryEquipRemote:FireServer(true)
+    end
+
+    setupSilentAim(vehicle.PrimaryPart)
+
+    local ammo = pistol:GetAttribute("AmmoCurrentLocal")
+    if ammo and ammo > 0 then
+        shoot()
+    else
+        local reloadRemote = pistol:FindFirstChild("Reload")
+        if reloadRemote then
+            reloadRemote:FireServer()
         end
     end
-    
-    if VehicleRetryCount >= MAX_VEHICLE_RETRIES then
-        task.wait(RETRY_COOLDOWN)
-        VehicleRetryCount = 0
-        return
-    end
-    
-    if ArrestRetryCount >= MAX_ARREST_RETRIES then
-        task.wait(RETRY_COOLDOWN)
-        ArrestRetryCount = 0
-        return
-    end
-    
-    if not hum.Sit and not CurrentVehicle then
-        local veh = getClosestVehicle()
-        if veh then
-            local success = enterVehicleRoutine(veh)
-            if not success then
-                VehicleRetryCount = VehicleRetryCount + 1
-                task.wait(RETRY_COOLDOWN)
-            end
-        else
-            if root.Position.Y < HOVER_HEIGHT then
-                safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
-            end
-        end
-        return
-    end
-    
-    if hum.Sit or CurrentVehicle then
-        local target = getBestTarget()
-        if target then
-            local success = arrestSequence(target)
-            if not success then
-                ArrestRetryCount = ArrestRetryCount + 1
-                task.wait(0.1)
-            end
-        else
-            local prison = v3new(-1140, HOVER_HEIGHT, -1500)
-            local bank = v3new(-10, HOVER_HEIGHT, 1000)
-            
-            root = getHRP()
-            if root then
-                local distPrison = (root.Position - prison).Magnitude
-                local distBank = (root.Position - bank).Magnitude
-                
-                if distPrison < distBank then
-                    flyToLocation(bank, true)
-                else
-                    flyToLocation(prison, true)
-                end
-            end
-        end
-    end
+
+    lastVehicleShotTime = tick()
 end
 
 local function startCoverageMonitor()
-    if CoverageCheckConnection then return end
-    
-    CoverageCheckConnection = task.spawn(function()
+    if CoverageThread then return end
+
+    CoverageThread = task.spawn(function()
         while AutoArrestEnabled do
             task.wait(COVERAGE_CHECK_INTERVAL)
-            
-            if IsExecutingSpawnPath then continue end
-            
+
+            if IsExecutingSpawnPath then
+                continue
+            end
+
             local root = getHRP()
-            local hum = getHumanoid()
+            local hum  = getHumanoid()
             if not root or not hum or hum.Health <= 0 then
                 SelfCoveredStartTime = nil
                 TargetCoveredStartTime = nil
                 ActionInProgress = false
-                CurrentVehicle = nil
-                ExitedCarRef = nil
+                CurrentVehicle   = nil
+                ExitedCarRef     = nil
                 continue
             end
-            
+
             if amICovered() then
                 if not SelfCoveredStartTime then
                     SelfCoveredStartTime = tick()
                 end
-                
+
                 local coveredDuration = tick() - SelfCoveredStartTime
-                
                 local spawnPath = findSpawnPath()
                 if spawnPath then
                     executeSpawnPath(spawnPath)
@@ -2287,441 +2195,298 @@ local function startCoverageMonitor()
                 SelfCoveredStartTime = nil
             end
         end
+
+        CoverageThread = nil
     end)
 end
 
+local function stopCoverageMonitor()
+    CoverageThread = nil
+    SelfCoveredStartTime = nil
+    TargetCoveredStartTime = nil
+end
+
+
+
+local function unequipAllTools()
+    local folder = LocalPlayer:FindFirstChild("Folder")
+    if not folder then return end
+
+    for _, toolName in ipairs({"Pistol", "Handcuffs"}) do
+        local tool = folder:FindFirstChild(toolName)
+        if tool and tool:GetAttribute("Equipped") then
+            tool.InventoryEquipRemote:FireServer(false)
+        end
+    end
+end
+
+local function equipTool(toolName)
+    local folder = LocalPlayer:FindFirstChild("Folder")
+    if not folder then return nil end
+
+    local tool = folder:FindFirstChild(toolName)
+    if not tool then return nil end
+
+    if tool:GetAttribute("Equipped") then
+        return tool
+    end
+
+    unequipAllTools()
+    tool.InventoryEquipRemote:FireServer(true)
+    return tool
+end
+
+
+
 local function arrestSequence(target)
     ActionInProgress = true
-    if ExitedCarRef and not CurrentVehicle and ExitedCarRef.PrimaryPart and ExitedCarRef.PrimaryPart.Parent then
-        CurrentVehicle = ExitedCarRef
-    end
-    
-    local targetName = target.Name
-    local root = getHRP()
-    local hum = getHumanoid()
-    
-    if not root or not hum or hum.Health <= 0 then
-        ActionInProgress = false
-        CurrentVehicle = nil
-        ExitedCarRef = nil
-        return false
-    end
 
-    local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if not tRoot then
-        ActionInProgress = false
-        return false
-    end
-    
-    local tStart = tick()
-    local ejectKey = KeyMap[VEHICLE_EJECT_STABLE_KEY]
-    local arrestKey = KeyMap[ARREST_STABLE_KEY]
-    local folder = LocalPlayer:FindFirstChild("Folder")
+    local success = false 
 
-    if amICovered() then
-        local spawnPath = findSpawnPath()
-        if spawnPath then
-            executeSpawnPath(spawnPath)
-            task.wait(1)
-        else
-            killSelf()
-            ActionInProgress = false
-            return false
+    local ok, err = pcall(function()
+        if not target then return end
+
+        if ExitedCarRef and not CurrentVehicle and ExitedCarRef.PrimaryPart and ExitedCarRef.PrimaryPart.Parent then
+            CurrentVehicle = ExitedCarRef
         end
-    end
 
-    if CurrentVehicle and CurrentVehicle.PrimaryPart then
-        safeVerticalTeleport(v3new(CurrentVehicle.PrimaryPart.Position.X, HOVER_HEIGHT, CurrentVehicle.PrimaryPart.Position.Z))
-    end
-    task.wait(0.1)
+        local targetName = target.Name
+        local root = getHRP()
+        local hum  = getHumanoid()
 
-    local lastCoverageCheck = tick()
-    
-    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        hum = getHumanoid()
-        root = getHRP()
-        if not hum or not root or hum.Health <= 0 then
-            ActionInProgress = false
-            CurrentVehicle = nil
-            ExitedCarRef = nil
-            return false
+        if not root or not hum or hum.Health <= 0 then
+            return
         end
-        
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
-        if not hasPlayerEscaped(target) then break end
-        
-        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
-            lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then break end
-        end
-        
-        local currentTargetPos = tRoot.Position
-        local prim = CurrentVehicle.PrimaryPart
-        root = getHRP()
-        if not root or not prim or not prim.Parent then break end
-        
-        local aboveTarget = v3new(currentTargetPos.X, HOVER_HEIGHT, currentTargetPos.Z)
-        flyTowards3D(aboveTarget, FLY_SPEED_CAR, prim)
-        
-        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
-        
-        if horizontalDist < 15 then
-            killVelocity(prim)
-            break
-        end
-        
-        if (tick() - tStart) > 30 then break end
-        task.wait()
-    end
 
-    tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if tRoot and isCovered(tRoot.Position, target) then
-        ActionInProgress = false
-        return false
-    end
-
-    local ramSuccess = false
-    while hum and hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart do
-        hum = getHumanoid()
-        root = getHRP()
-        if not hum or not root or hum.Health <= 0 then
-            ActionInProgress = false
-            CurrentVehicle = nil
-            ExitedCarRef = nil
-            return false
-        end
-        
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
-        if not hasPlayerEscaped(target) then break end
-
-        
-        if (tick() - lastCoverageCheck) >= COVERAGE_CHECK_INTERVAL then
-            lastCoverageCheck = tick()
-            if isCovered(tRoot.Position, target) then break end
-        end
-        
-        local currentTargetPos = tRoot.Position
-        local prim = CurrentVehicle.PrimaryPart
-        root = getHRP()
-        if not root or not prim or not prim.Parent then break end
-        
-        local targetHeight = currentTargetPos.Y + DROP_OFFSET_STUDS
-        local goalPos = v3new(currentTargetPos.X, targetHeight, currentTargetPos.Z)
-        
-        flyTowards3D(goalPos, FLY_SPEED_CAR, prim)
-        
-        local horizontalDist = (v3new(prim.Position.X, 0, prim.Position.Z) - v3new(currentTargetPos.X, 0, currentTargetPos.Z)).Magnitude
-        local verticalDist = math.abs(prim.Position.Y - targetHeight)
-        
-        if horizontalDist < 50 and verticalDist < 15 then 
-            if ramTargetVehicle(target) then
-                ramSuccess = true
-                break
-            end
-        end
-        
-        if horizontalDist < 15 and verticalDist < 15 then
-            killVelocity(prim)
-            break
-        end
-        
-        if (tick() - tStart) > 40 then break end
-        task.wait()
-    end
-
-    if CurrentVehicle and CurrentVehicle.PrimaryPart then
-        killVelocity(CurrentVehicle.PrimaryPart)
-    end
-    
-    if CurrentVehicle then
-        ExitedCarRef = CurrentVehicle
-    end
-
-    exitVehicleRoutine()
-    task.wait(0.3)
-    
-    local shootTask = nil
-    local tHum = target.Character and target.Character:FindFirstChild("Humanoid")
-    if tHum and tHum.Sit then
-        
-        shootTask = task.spawn(function()
-            while true do
-                local tChar = target.Character
-                local tHum  = tChar and tChar:FindFirstChild("Humanoid")
-
-                if not tHum then
-                    break
-                end
-
-                local seat = tHum.SeatPart
-                if not seat or not seat.Parent then
-                    break
-                end
-
-                local targetVehicle = seat.Parent or getClosestVehicleToPlayer(target)
-                if targetVehicle then
-                    local tireHealth = targetVehicle:GetAttribute("VehicleTireHealth")
-                    local needsShooting = (tireHealth == nil) or (tireHealth > 0)
-
-                    if needsShooting then
-                        shootTargetVehicle(target)
-                        task.wait(0.2)
-                    else
-                        task.wait(0.5)
-                    end
-                else
-                    task.wait(0.1)
-                end
-            end
-        end)
-        task.wait(0.2)
-    end
-
-    local tChar = target.Character
-    tHum = tChar and tChar:FindFirstChild("Humanoid")
-    local targetVehicleToEject = tHum and tHum.SeatPart and tHum.SeatPart.Parent
-
-    if targetVehicleToEject and ejectKey then
-        for i = 1, 5 do
-            local tHumCheck = target.Character and target.Character:FindFirstChild("Humanoid")
-            if not (tHumCheck and tHumCheck.Sit) then break end
-            
-            if folder and folder:FindFirstChild("Handcuffs") then
-                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
-            end
-            Remote:FireServer(ejectKey, targetVehicleToEject)
-            task.wait(0.08)
-        end
-    end
-    
-    task.wait(0.1)
-    
-    if folder and folder:FindFirstChild("Handcuffs") then
-        folder.Handcuffs.InventoryEquipRemote:FireServer(true)
-        task.wait(0.1)
-    end
-    
-    
-    local targetPath = {}
-    local pathRecordTime = tick()
-    local PATH_RECORD_INTERVAL = 0.05
-    local PATH_FOLLOW_OFFSET = 0.01 
-    
-    local chaseStartTime = tick()
-    local CHASE_TIMEOUT = 10
-    local success = false
-    root = getHRP()
-    if root then
-        safeVerticalTeleport(v3new(root.Position.X, root.Position.Y + MIN_HEIGHT_ABOVE_GROUND, root.Position.Z))
-    end
-    
-    while true do
-        hum = getHumanoid()
-        root = getHRP()
-        if not hum or not root or hum.Health <= 0 then
-            ActionInProgress = false
-            CurrentVehicle = nil
-            ExitedCarRef = nil
-            killVelocity(root)
-            
-            if shootTask then
-                task.cancel(shootTask)
-            end
-            
-            local folder = LocalPlayer:FindFirstChild("Folder")
-            if folder and folder:FindFirstChild("Handcuffs") then
-                folder.Handcuffs.InventoryEquipRemote:FireServer(false)
-            end
-            local pistol = folder and folder:FindFirstChild("Pistol")
-            if pistol and pistol:GetAttribute("Equipped") then
-                pistol.InventoryEquipRemote:FireServer(false)
-            end
-            
-            return false
-        end
-        
-        tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-        if not tRoot or not tRoot.Parent then break end
         if not hasPlayerEscaped(target) then
-            success = true
-            break
-        end
-        if (tick() - chaseStartTime) > CHASE_TIMEOUT then break end
-
-        root = getHRP()
-        if not root then break end
-        
-        if (tick() - pathRecordTime) >= PATH_RECORD_INTERVAL then
-            table.insert(targetPath, {
-                Position = tRoot.Position,
-                Time = tick()
-            })
-            pathRecordTime = tick()
-        end
-        
-        local tPos = tRoot.Position
-        
-        local dist = (root.Position - tPos).Magnitude
-        local chaseTarget = nil
-        
-        local followTime = tick() - PATH_FOLLOW_OFFSET
-        local bestFollowPos = nil
-        
-        while targetPath[1] and targetPath[1].Time < (followTime - 4.5) do
-            table.remove(targetPath, 1)
+            return
         end
 
-        for i = 1, #targetPath do
-            if targetPath[i].Time >= followTime then
-                bestFollowPos = targetPath[math.max(1, i-1)].Position
+        if not (hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent) then
+            return
+        end
+
+        local startTime    = tick()
+        local chaseTimeout = 40
+
+        local popWithVehicleStart = nil
+        local POP_TIMEOUT = 1.5  
+
+        while AutoArrestEnabled and (tick() - startTime) < chaseTimeout do
+            hum  = getHumanoid()
+            root = getHRP()
+            if not hum or not root or hum.Health <= 0 then
+                return
+            end
+
+            local tChar = target.Character
+            local tHum  = tChar and tChar:FindFirstChild("Humanoid")
+            local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+
+            if not tHum or not tRoot or tHum.Health <= 0 then
                 break
-            elseif i == #targetPath then
-                bestFollowPos = targetPath[i].Position
             end
-        end
-        
-        if bestFollowPos then
-            chaseTarget = v3new(bestFollowPos.X, bestFollowPos.Y + 3, bestFollowPos.Z)
-        else
-            chaseTarget = v3new(tPos.X, tPos.Y + 3, tPos.Z)
-        end
-        
-        flyTowards3D(chaseTarget, FLY_SPEED_FOOT, root)
-        
-        if dist < 25 and arrestKey then
-            if folder and folder:FindFirstChild("Handcuffs") then
-                folder.Handcuffs.InventoryEquipRemote:FireServer(true)
+
+            if not hasPlayerEscaped(target) then
+                success = true
+                break
             end
-            Remote:FireServer(arrestKey, targetName)
-            Remote:FireServer(arrestKey, targetName)
-            Remote:FireServer(arrestKey, targetName)
+
+            local vehiclePart = CurrentVehicle and CurrentVehicle.PrimaryPart
+            if not vehiclePart or not vehiclePart.Parent then
+                break
+            end
+
+            if isCovered(tRoot.Position, target) then
+                break
+            end
+
+            local targetPos      = tRoot.Position
+            local vehiclePosXZ   = v3new(vehiclePart.Position.X, 0, vehiclePart.Position.Z)
+            local targetPosXZ    = v3new(targetPos.X, 0, targetPos.Z)
+            local horizontalDist = (vehiclePosXZ - targetPosXZ).Magnitude
+
+            local chaseY         = HOVER_HEIGHT
+            local playersVehicle = getPlayersVehicle(target)
+
+            local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
+            local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
+            if playersVehicle and playersVehicle.PrimaryPart then
+                if horizontalDist < 80 then
+                    local vehPos = playersVehicle.PrimaryPart.Position
+                    local safeY  = getSafeHeight(vehPos)
+                    chaseY       = math.max(vehPos.Y + DROP_OFFSET_STUDS, safeY + 5)
+
+                    if tHum.Sit and not tiresPopped and not popWithVehicleStart then
+                        popWithVehicleStart = tick()
+                    end
+                end
+            end
+
+            local chasePos = v3new(targetPos.X, chaseY, targetPos.Z)
+            flyTowards3D(chasePos, FLY_SPEED_CAR, vehiclePart)
+
+            if horizontalDist < 30 and (tiresPopped or not tHum.Sit) then
+                killVelocity(vehiclePart)
+                break
+            end
+
+            if popWithVehicleStart and (tick() - popWithVehicleStart) > POP_TIMEOUT then
+                killVelocity(vehiclePart)
+                break
+            end
+
+            task.wait(0.05)
         end
-        
-        local currentTargetVehicle = getClosestVehicleToPlayer(target)
-        if currentTargetVehicle and ejectKey then
-            Remote:FireServer(ejectKey, currentTargetVehicle)
+
+        if CurrentVehicle and CurrentVehicle.PrimaryPart then
+            killVelocity(CurrentVehicle.PrimaryPart)
         end
-        
-        task.wait()
+
+        if CurrentVehicle then
+            ExitedCarRef = CurrentVehicle
+        end
+
+        exitVehicleRoutine()
+        task.wait(0.2)
+
+        local chaseStart2   = tick()
+        local chaseTimeout2 = 15
+
+        while AutoArrestEnabled and (tick() - chaseStart2) < chaseTimeout2 do
+            hum  = getHumanoid()
+            root = getHRP()
+            if not hum or not root or hum.Health <= 0 then
+                return
+            end
+
+            local tChar = target.Character
+            local tHum  = tChar and tChar:FindFirstChild("Humanoid")
+            local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+
+            if not tHum or not tRoot or tHum.Health <= 0 then
+                break
+            end
+
+            if not hasPlayerEscaped(target) then
+                success = true
+                break
+            end
+
+            local targetPos = tRoot.Position
+            local safeY    = getSafeHeight(targetPos)
+            local chaseY   = math.max(targetPos.Y + 3, safeY + 3)
+            local chasePos = v3new(targetPos.X, chaseY, targetPos.Z)
+
+            flyTowards3D(chasePos, FLY_SPEED_FOOT, root)
+
+            local dist   = (root.Position - targetPos).Magnitude
+            local seated = tHum.Sit
+
+            local folder = LocalPlayer:FindFirstChild("Folder")
+            local cuffs  = folder and folder:FindFirstChild("Handcuffs")
+
+            if seated then
+                local playersVehicle = getPlayersVehicle(target)
+                local tireHealth  = playersVehicle and playersVehicle:GetAttribute("VehicleTireHealth") or nil
+                local tiresPopped = (tireHealth ~= nil and tireHealth <= 0)
+
+                if tHum.Sit and playersVehicle and not tiresPopped then
+                    local pistol     = folder and folder:FindFirstChild("Pistol")
+                    local popTiresKey = KeyMap[POP_TIRES_STABLE_KEY]
+
+                    if pistol then
+                        if not pistol:GetAttribute("Equipped") then
+                            pistol.InventoryEquipRemote:FireServer(true)
+                        end
+
+                        if popTiresKey then
+                            Remote:FireServer(popTiresKey, playersVehicle, "Pistol")
+                            print("Fired Pop (on-foot phase)")
+                        end
+                    end
+                end
+
+                local ejectKeyUuid = KeyMap[VEHICLE_EJECT_STABLE_KEY]
+                if ejectKeyUuid then
+                    local veh = getPlayersVehicle(target)
+                    if veh then
+                        Remote:FireServer(ejectKeyUuid, veh)
+                    end
+                end
+            else
+                if dist <= ARREST_CHASE_RANGE and cuffs then
+                    cuffs.InventoryEquipRemote:FireServer(true)
+                    local arrestKeyUuid = KeyMap[ARREST_STABLE_KEY]
+                    if arrestKeyUuid then
+                        Remote:FireServer(arrestKeyUuid, targetName)
+                        Remote:FireServer(arrestKeyUuid, targetName)
+                        Remote:FireServer(arrestKeyUuid, targetName)
+                    end
+                end
+            end
+
+            task.wait(ARREST_LOOP_DELAY)
+        end
+    end) 
+
+    if not ok then
+        warn("arrestSequence error:", err)
     end
-    
-    killVelocity(getHRP())
-    
-    if shootTask then
-        task.cancel(shootTask)
+
+    resetSilentAim()
+
+    local folder = LocalPlayer:FindFirstChild("Folder")
+    if folder then
+        local pistol = folder:FindFirstChild("Pistol")
+        if pistol and pistol:GetAttribute("Equipped") then
+            pistol.InventoryEquipRemote:FireServer(false)
+        end
+        local cuffs = folder:FindFirstChild("Handcuffs")
+        if cuffs then
+            cuffs.InventoryEquipRemote:FireServer(false)
+        end
     end
-    
-    if folder and folder:FindFirstChild("Handcuffs") then
-        folder.Handcuffs.InventoryEquipRemote:FireServer(false)
+
+    local root2 = getHRP()
+    if root2 then
+        safeVerticalTeleport(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
     end
-    local pistol = folder:FindFirstChild("Pistol")
-    if pistol and pistol:GetAttribute("Equipped") then
-        pistol.InventoryEquipRemote:FireServer(false)
-    end
-    
+
+    ActionInProgress = false
+
     if success then
         ArrestRetryCount = 0
     else
         ArrestRetryCount = ArrestRetryCount + 1
     end
-    
-    root = getHRP()
-    if root then
-        if amICovered() then
-            local spawnPath = findSpawnPath()
-            if spawnPath then
-                executeSpawnPath(spawnPath)
-                task.wait(1)
-            elseif not canEscapeCover() then
-                killSelf()
-                ActionInProgress = false
-                return success
-            end
-        end
-        safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
-    end
-    
-    ActionInProgress = false
+
     return success
 end
 
 
-local function startCoverageMonitor()
-    if CoverageCheckConnection then return end
-    
-    CoverageCheckConnection = task.spawn(function()
-        while AutoArrestEnabled do
-            task.wait(COVERAGE_CHECK_INTERVAL)
-            
-            if IsExecutingSpawnPath then continue end
-            
-            local root = getHRP()
-            local hum = getHumanoid()
-            if not root or not hum or hum.Health <= 0 then
-                SelfCoveredStartTime = nil
-                TargetCoveredStartTime = nil
-                ActionInProgress = false
-                CurrentVehicle = nil
-                ExitedCarRef = nil
-                continue
-            end
-            
-            if amICovered() then
-                if not SelfCoveredStartTime then
-                    SelfCoveredStartTime = tick()
-                end
-                
-                local coveredDuration = tick() - SelfCoveredStartTime
-                
-                local spawnPath = findSpawnPath()
-                if spawnPath then
-                    executeSpawnPath(spawnPath)
-                    task.wait(1)
-                    SelfCoveredStartTime = nil
-                elseif coveredDuration >= MAX_COVERED_TIME then
-                    if not canEscapeCover() then
-                        killSelf()
-                        SelfCoveredStartTime = nil
-                    end
-                end
-            else
-                SelfCoveredStartTime = nil
-            end
-        end
-    end)
-end
-
-
-local function stopCoverageMonitor()
-    CoverageCheckConnection = nil
-    SelfCoveredStartTime = nil
-    TargetCoveredStartTime = nil
-end
-
 local function MainLoop()
-    if ActionInProgress then return end
-    if IsExecutingSpawnPath then return end
-    
-    local hum = getHumanoid()
+    if not AutoArrestEnabled then return end
+    if ActionInProgress or IsExecutingSpawnPath then return end
+
+    local hum  = getHumanoid()
     local root = getHRP()
-    
+
     if not root or not hum or hum.Health <= 0 then
-        ActionInProgress = false
-        CurrentVehicle = nil
-        ExitedCarRef = nil
-        VehicleRetryCount = 0
-        ArrestRetryCount = 0
-        StuckCheckPosition = nil
-        TargetPositionHistory = {}
-        SelfCoveredStartTime = nil
+        ActionInProgress       = false
+        CurrentVehicle         = nil
+        ExitedCarRef           = nil
+        VehicleRetryCount      = 0
+        ArrestRetryCount       = 0
+        StuckCheckPosition     = nil
+        TargetPositionHistory  = {}
+        SelfCoveredStartTime   = nil
         TargetCoveredStartTime = nil
         return
     end
-    
+
     cleanupState()
-    
+
     if amICovered() then
         local spawnPath = findSpawnPath()
         if spawnPath then
@@ -2733,84 +2498,102 @@ local function MainLoop()
             return
         end
     end
-    
+
     if VehicleRetryCount >= MAX_VEHICLE_RETRIES then
         task.wait(RETRY_COOLDOWN)
         VehicleRetryCount = 0
         return
     end
-    
+
     if ArrestRetryCount >= MAX_ARREST_RETRIES then
         task.wait(RETRY_COOLDOWN)
         ArrestRetryCount = 0
         return
     end
-    
-    if not hum.Sit and not CurrentVehicle then
-        local veh = getClosestVehicle()
-        if veh then
-            local success = enterVehicleRoutine(veh)
-            if not success then
-                VehicleRetryCount = VehicleRetryCount + 1
-                task.wait(RETRY_COOLDOWN)
-            end
-        else
-            if root.Position.Y < HOVER_HEIGHT then
-                safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
-            end
-        end
-        return
-    end
-    
-    if hum.Sit or CurrentVehicle then
-        local target = getBestTarget()
-        if target then
-            local success = arrestSequence(target)
-            if not success then
-                ArrestRetryCount = ArrestRetryCount + 1
-                task.wait(0.1)
-            end
 
-        else
-            -- no target found, wait 10 seconds and check again
-            task.wait(10)
+    local target = getBestTarget()
 
-            -- refresh target after waiting
-            target = findTarget and findTarget() or target   -- replace with your target-finding function
+    local NO_CAR_TARGET_DISTANCE = 400
 
-            if not target then
-                -- still no target → teleport
-                local patrol = v3new(-1140, HOVER_HEIGHT, -1500)
-                root = getHRP()
+    hum  = getHumanoid()
+    root = getHRP()
+    if not hum or not root or hum.Health <= 0 then return end
 
-                if root then
-                    local distPatrol = (root.Position - patrol).Magnitude
-                    flyToLocation(patrol, true)
+    local inVehicle = hum.Sit and CurrentVehicle and CurrentVehicle.PrimaryPart and CurrentVehicle.PrimaryPart.Parent
 
-                    queue_on_teleport([[
-                        loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
-                    ]])
+    if not inVehicle then
+        if target and target.Character then
+            local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if tRoot then
+                local dist = (root.Position - tRoot.Position).Magnitude
 
-                    task.wait(5)
-
-                    local TeleportService = game:GetService("TeleportService")
-                    TeleportService:Teleport(game.PlaceId, Player)
+                if dist <= NO_CAR_TARGET_DISTANCE then
+                    arrestSequence(target)
+                    return
                 end
             end
         end
 
+        local veh = getClosestVehicle()
+        if veh then
+            local success = enterVehicleRoutine(veh)
+            if not success then
+                VehicleRetryCount += 1
+                task.wait(RETRY_COOLDOWN)
+            end
+        else
+            local r = getHRP()
+            if r and r.Position.Y < HOVER_HEIGHT then
+                safeVerticalTeleport(v3new(r.Position.X, HOVER_HEIGHT, r.Position.Z))
+            end
+        end
+        return
+    end
+
+    if target then
+        arrestSequence(target)
+    else
+        root = getHRP()
+        if not root then return end
+
+        local prison = v3new(-1140, HOVER_HEIGHT, -1500)
+        local bank   = v3new(-10,   HOVER_HEIGHT, 1000)
+
+        local distPrison = (root.Position - prison).Magnitude
+        local distBank   = (root.Position - bank).Magnitude
+
+        local dest = (distPrison < distBank) and bank or prison
+        flyToLocation(dest, true)
     end
 end
 
 
 local function ToggleAutoArrest()
     AutoArrestEnabled = not AutoArrestEnabled
-    
+
     if AutoArrestEnabled then
         print("Auto-Arrest ENABLED")
-        
+
+        ActionInProgress      = false
+        IsExecutingSpawnPath  = false
+        ExitedCarRef          = nil
+        CurrentVehicle        = nil
+        VehicleRetryCount     = 0
+        ArrestRetryCount      = 0
+        TargetPositionHistory = {}
+        SelfCoveredStartTime  = nil
+        TargetCoveredStartTime= nil
+        StuckCheckPosition    = nil
+        lastVehicleShotTime   = 0
+        resetSilentAim()
+
+        local root = getHRP()
+        if root then
+            killVelocity(root)
+        end
+
         startCoverageMonitor()
-        
+
         if amICovered() then
             local spawnPath = findSpawnPath()
             if spawnPath then
@@ -2818,44 +2601,71 @@ local function ToggleAutoArrest()
                 task.wait(1)
             end
         end
-        
-        local root = getHRP()
-        if root and root.Position.Y < HOVER_HEIGHT and not amICovered() then
-            safeVerticalTeleport(v3new(root.Position.X, HOVER_HEIGHT, root.Position.Z))
+
+        local root2 = getHRP()
+        if root2 and root2.Position.Y < HOVER_HEIGHT then
+            safeVerticalTeleport(v3new(root2.Position.X, HOVER_HEIGHT, root2.Position.Z))
         end
-        
+
         if not MainLoopConnection then
-            MainLoopConnection = heartbeat:Connect(MainLoop)
+            MainLoopConnection = RunService.Heartbeat:Connect(MainLoop)
         end
     else
         print("Auto-Arrest DISABLED")
-        
-        stopCoverageMonitor()
-        
+
         if MainLoopConnection then
             MainLoopConnection:Disconnect()
             MainLoopConnection = nil
         end
-        
+
+        stopCoverageMonitor()
+
+        AutoArrestEnabled     = false
+        ActionInProgress      = false
+        IsExecutingSpawnPath  = false
+
         resetSilentAim()
-        
-        ActionInProgress = false
-        CurrentVehicle = nil
-        ExitedCarRef = nil
-        VehicleRetryCount = 0
-        ArrestRetryCount = 0
-        StuckCheckPosition = nil
-        IsExecutingSpawnPath = false
+        shootTarget = nil
+
+        local root = getHRP()
+        if root then killVelocity(root) end
+        if CurrentVehicle and CurrentVehicle.PrimaryPart then
+            killVelocity(CurrentVehicle.PrimaryPart)
+        end
+
+        CurrentVehicle        = nil
+        ExitedCarRef          = nil
+        VehicleRetryCount     = 0
+        ArrestRetryCount      = 0
+        StuckCheckPosition    = nil
+        TargetPositionHistory = {}
+        SelfCoveredStartTime  = nil
+        TargetCoveredStartTime= nil
+
+        local folder = LocalPlayer:FindFirstChild("Folder")
+        if folder then
+            local pistol = folder:FindFirstChild("Pistol")
+            if pistol and pistol:GetAttribute("Equipped") then
+                pistol.InventoryEquipRemote:FireServer(false)
+            end
+            local cuffs = folder:FindFirstChild("Handcuffs")
+            if cuffs then
+                cuffs.InventoryEquipRemote:FireServer(false)
+            end
+        end
     end
 end
+
 
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
             for _, v in getgc(false) do
-                if typeof(v)=="function" and islclosure(v) and debug.info(v,"n")=="EventFireServer" then
+                if typeof(v) == "function" and islclosure(v) and debug.info(v, "n") == "EventFireServer" then
                     local ups = debug.getupvalues(v)
-                    if ups[3] and ups[3]["y62bk0nz"] then ups[3]["y62bk0nz"] = nil end
+                    if ups[3] and ups[3]["y62bk0nz"] then
+                        ups[3]["y62bk0nz"] = nil
+                    end
                 end
             end
         end)
@@ -2863,34 +2673,28 @@ task.spawn(function()
 end)
 
 
-
 local Lib = library:Create("Serenity | Jailbreak")
 local Tab = Lib:Tab("Main")
 
-Tab:Toggle("Toggle Arrest","Toggle",true,function(Value)
+Tab:Toggle("Toggle Arrest", "Toggle", false, function()
     ToggleAutoArrest()
 end)
 
-
-
-
-
-
-
-
-
-
-
-
 local SettingsTab = Lib:Tab("Settings")
 
-SettingsTab:Button("Destroy UI",function()
-    DestroyUI()
+SettingsTab:Button("Destroy UI", function()
+    if _G.SerenityDestroyUI then
+        _G.SerenityDestroyUI()
+    end
 end)
 
-SettingsTab:KeyBind("Toggle UI","RightShift",function(Value)
-    ToggleUI()
+SettingsTab:KeyBind("Toggle UI", "RightShift", function()
+    if _G.SerenityToggleUI then
+        _G.SerenityToggleUI()
+    end
 end)
 
-local key = KeyMap[JOIN_TEAM_STABLE_KEY]
-if key then Remote:FireServer(key, "Police") end
+local joinKey = KeyMap[JOIN_TEAM_STABLE_KEY]
+if joinKey then
+    Remote:FireServer(joinKey, "Police")
+end
