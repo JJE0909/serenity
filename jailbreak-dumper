@@ -44,6 +44,105 @@ local backupKeys = { -- could do getinfo numparams but this is faster
     Eject = true
 }
 
+
+
+
+local blacklistedConsts = {}
+for idx, val in pairs(getrenv()) do
+    if idx ~= '_G' and idx ~= 'shared' and typeof(val) == 'table' then
+        for name, _ in pairs(val) do table.insert(blacklistedConsts, name) end
+    end
+end
+
+local network = getupvalue(require(game:GetService('ReplicatedStorage').Module.AlexChassis).SetEvent, 1)
+local function getHash(func, keyIdx, expected)
+    assert(type(func) == 'function', '[HASH GRABBER] 1st arg must be a function')
+    assert(type(keyIdx) == 'number', '[HASH GRABBER] 2nd arg must be a number')
+    assert(type(expected) == 'number', '[HASH GRABBER] 3rd arg must be a number')
+
+    local keys = getupvalue(getupvalue(network.FireServer, 1), 3)
+
+    local function getHashInner(isGay)
+        local constants = getconstants(func)
+        local foundKeys, validConsts = {}, {}
+
+        for idx, constant in pairs(constants) do
+            if keys[constant] then
+                table.insert(foundKeys, {
+                    key = constant,
+                    idx = idx,
+                    idx1 = idx
+                })
+                constants[idx] = nil
+            elseif type(constant) ~= 'string' or constant == '' or constant:match('%u') or constant:match('%W') or table.find(blacklistedConsts, constant) then constants[idx] = nil
+            else validConsts[idx] = constant end
+        end
+
+        for key, _ in pairs(keys) do
+            local possible, startIdx = false, nil
+            for _ = 1, isGay and 2 or 1 do
+                for idx, constant in pairs(constants) do
+                    if not possible and key:sub(1, #constant) == constant then
+                        possible, startIdx = true, idx
+                        if isGay then break end
+                    elseif possible and key:sub(#key - (#constant - 1), #key) == constant then
+                        local chars, isKey = {}, true
+
+                        for idx1 = startIdx, idx do
+                            if validConsts[idx1] then
+                                for _, char in pairs(validConsts[idx1]:split('')) do table.insert(chars, char) end
+                            end
+                        end
+
+                        for _, char in pairs(key:split('')) do
+                            if not table.find(chars, char) then isKey = false break end
+                            if not isGay then table.remove(chars, table.find(chars, char)) end
+                        end
+
+                        if isKey then
+                            table.insert(foundKeys, {
+                                key = key,
+                                idx = startIdx,
+                                idx1 = idx
+                            })
+                        end
+                        break
+                    end
+                end
+            end
+        end
+
+        local filtered = isGay and foundKeys or {}
+        if not isGay then
+            for _, key in pairs(foundKeys) do
+                local invalid = false
+                for _, key1 in pairs(foundKeys) do
+                    if key.idx1 == key1.idx then
+                        invalid = true
+                        break
+                    end
+                end
+
+                if not invalid then table.insert(filtered, key) end
+            end
+        end
+
+        table.sort(filtered, function(a, b) return a.idx < b.idx end)
+        return filtered
+    end
+
+    local hashes = getHashInner(false)
+    local gayHashes = getHashInner(true)
+
+    local final = (#hashes == expected and hashes) or (#gayHashes == expected and gayHashes) or {}
+    if #final == 0 then return error('[HASH GRABBER] unexpected hash amount, got ' .. #gayHashes .. '/' .. #hashes .. ', expected ' .. expected) end
+    return keyIdx == 0 and final or (final[keyIdx] or {}).key
+end
+
+
+
+
+
 local exceptionKeys = { -- keys to use alternative method (deemed to be more efficient for these cases)
     PlaySound = function(checkFunction)
         return getconstants(checkFunction)[1] == "Source"
@@ -232,6 +331,11 @@ do -- punch
     end
 end
 
+keyFunctions.PopTires = function()
+    return getproto(require(ReplicatedStorage.Game.Item.Gun).SetupBulletEmitter, 3)
+end
+
+
 do -- arrest / pickpocket / breakout
     local characterInteractFunction = (function()
         local success, func = pcall(function()
@@ -399,9 +503,6 @@ end
 for keyName, keyFunction in keyFunctions do
     local success, errorMessage = pcall(function()
         local func = keyFunction()
-        if typeof(func) ~= "function" then
-             error("Key function returned nil/bad value")
-        end
         networkKeys[keyName] = fetchKey(func) or "Failed to fetch key"
     end)
 
@@ -504,3 +605,4 @@ else
 end
 
 return networkKeys, network
+
