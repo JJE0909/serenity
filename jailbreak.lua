@@ -1,17 +1,25 @@
 
 local library = {}
 library.flags = {}
+library.statusConsole = nil
 library.currentTab = nil
 local toggled = false
 local mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local theme = {
-    main      = Color3.fromRGB(37, 37, 37),
-    secondary = Color3.fromRGB(42, 42, 42),
-    accent    = Color3.fromRGB(255, 255, 255),
-    accent2   = Color3.fromRGB(57, 57, 57),
-    accent3   = Color3.fromRGB(51, 51, 155),
+    -- main surfaces
+    main      = Color3.fromRGB(12, 16, 26),   
+    secondary = Color3.fromRGB(18, 24, 38),  
+
+    -- text & accents
+    accent    = Color3.fromRGB(225, 235, 255), 
+    accent2   = Color3.fromRGB(36, 99, 210),  
+    accent3   = Color3.fromRGB(0, 186, 255),  
+
+    outline   = Color3.fromRGB(30, 40, 70),
+    muted     = Color3.fromRGB(140, 150, 175),
 }
+
 
 local function Tween(obj, size, delay)
     obj:TweenSize(size, "Out", "Sine", delay, false)
@@ -60,26 +68,71 @@ local function Ripple(obj)
     end)
 end
 
+local function timestamp()
+    local ok, res = pcall(function()
+        return os.date("%H:%M:%S")
+    end)
+    return ok and res or "??:??:??"
+end
+
+function library:LogStatus(message)
+    message = tostring(message or "")
+
+    print("[Serenity] " .. message)
+
+    local console = self.statusConsole
+    if console and console.AddLine then
+        console:AddLine(string.format("[%s] %s", timestamp(), message))
+    end
+end
+
+local function SetTabHighlight(section, active)
+    if not section then return end
+    local btn = section:GetAttribute("TabButton")
+    if not btn or not btn:IsA("TextButton") then return end
+
+    local targetBg   = active and theme.accent2 or theme.secondary
+    local targetText = active and theme.accent or theme.muted
+
+    Tween2(btn, {0.15, "Sine", "Out"}, {
+        BackgroundColor3 = targetBg,
+        TextColor3       = targetText,
+    })
+end
+
+
 local changingTab = false
 local function SwitchTab(Tab)
     if changingTab then return end
+    local New = Tab[1]
     local Old = library.currentTab
+
     if Old == nil then
-        library.currentTab = Tab[1]
-        Tab[1].Visible = true
+        library.currentTab = New
+        New.Visible = true
+        SetTabHighlight(New, true)
         return
     end
-    if Tab[1].Visible == true then return end
+
+    if New.Visible == true then return end
+
     changingTab = true
+    SetTabHighlight(Old, false)
+
     Tween(Old.Parent, UDim2.new(0, 440, 0, 0), 0.1)
     Old.Visible = false
     task.wait(0.2)
-    Tab[1].Visible = true
-    Tween(Tab[1].Parent, UDim2.new(0, 440, 0, 318), 0.1)
-    library.currentTab = Tab[1]
+
+    New.Visible = true
+    SetTabHighlight(New, true)
+
+    Tween(New.Parent, UDim2.new(0, 440, 0, 318), 0.1)
+    library.currentTab = New
+
     task.wait(0.1)
     changingTab = false
 end
+
 
 local function drag(frame, hold)
     if not hold then
@@ -164,6 +217,13 @@ function library:Create(title)
     MainFrame.Size = UDim2.new(0, 587, 0, 366)
     MainFrame.BorderSizePixel = 0
 
+    -- subtle border around the main card
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = theme.outline
+    MainStroke.Thickness = 1
+    MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    MainStroke.Parent = MainFrame
+
     local function ToggleUI()
         toggled = not toggled
         if not MainFrame.ClipsDescendants then
@@ -178,7 +238,7 @@ function library:Create(title)
 
     _G.SerenityToggleUI = ToggleUI
 
-    MainFrameC.CornerRadius = UDim.new(0, 6)
+    MainFrameC.CornerRadius = UDim.new(0, 8)
     MainFrameC.Name = "MainFrameC"
     MainFrameC.Parent = MainFrame
 
@@ -187,8 +247,15 @@ function library:Create(title)
     SideFrame.BackgroundColor3 = theme.secondary
     SideFrame.Position = UDim2.new(0.012, 0, 0.118, 0)
     SideFrame.Size = UDim2.new(0, 130, 0, 318)
+    SideFrame.BorderSizePixel = 0
 
-    SideFrameC.CornerRadius = UDim.new(0, 4)
+    local SideStroke = Instance.new("UIStroke")
+    SideStroke.Color = theme.outline
+    SideStroke.Thickness = 1
+    SideStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    SideStroke.Parent = SideFrame
+
+    SideFrameC.CornerRadius = UDim.new(0, 6)
     SideFrameC.Name = "SideFrameC"
     SideFrameC.Parent = SideFrame
 
@@ -201,7 +268,8 @@ function library:Create(title)
     TabContainer.Position = UDim2.new(0.051, 0, 0.022, 0)
     TabContainer.Size = UDim2.new(0, 117, 0, 305)
     TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-    TabContainer.ScrollBarThickness = 0
+    TabContainer.ScrollBarThickness = 3
+    TabContainer.ScrollBarImageColor3 = theme.accent3
 
     TabContainerL.Name = "TabContainerL"
     TabContainerL.Parent = TabContainer
@@ -221,7 +289,13 @@ function library:Create(title)
     TabHolder.Size = UDim2.new(0, 440, 0, 318)
     TabHolder.ClipsDescendants = true
 
-    TabHolderC.CornerRadius = UDim.new(0, 4)
+    local TabStroke = Instance.new("UIStroke")
+    TabStroke.Color = theme.outline
+    TabStroke.Thickness = 1
+    TabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    TabStroke.Parent = TabHolder
+
+    TabHolderC.CornerRadius = UDim.new(0, 6)
     TabHolderC.Name = "TabHolderC"
     TabHolderC.Parent = TabHolder
 
@@ -230,14 +304,23 @@ function library:Create(title)
     TopFrame.BackgroundColor3 = theme.secondary
     TopFrame.Position = UDim2.new(0.0123, 0, 0.0191, 0)
     TopFrame.Size = UDim2.new(0, 575, 0, 33)
+    TopFrame.BorderSizePixel = 0
 
-    TopFrameC.CornerRadius = UDim.new(0, 4)
+    TopFrameC.CornerRadius = UDim.new(0, 6)
     TopFrameC.Name = "TopFrameC"
     TopFrameC.Parent = TopFrame
 
+    local TopGradient = Instance.new("UIGradient")
+    TopGradient.Color = ColorSequence.new(
+        Color3.fromRGB(20, 60, 130),
+        Color3.fromRGB(40, 130, 230)
+    )
+    TopGradient.Rotation = 0
+    TopGradient.Parent = TopFrame
+
+
     Title.Name = "Title"
     Title.Parent = TopFrame
-    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Title.BackgroundTransparency = 1
     Title.BorderSizePixel = 0
     Title.Position = UDim2.new(0.0112, 0, 0, 0)
@@ -247,6 +330,7 @@ function library:Create(title)
     Title.TextColor3 = theme.accent
     Title.TextSize = 20
     Title.TextXAlignment = Enum.TextXAlignment.Left
+
 
     drag(MainFrame, TopFrame)
 
@@ -267,19 +351,20 @@ function library:Create(title)
         TabOpen.Name = "TabOpen"
         TabOpen.Parent = TabContainer
         TabOpen.BackgroundColor3 = theme.secondary
-        TabOpen.BackgroundTransparency = 1
+        TabOpen.BackgroundTransparency = 0   -- make it visible
         TabOpen.BorderSizePixel = 0
         TabOpen.Size = UDim2.new(0, 116, 0, 30)
         TabOpen.AutoButtonColor = false
         TabOpen.Font = Enum.Font.GothamMedium
         TabOpen.Text = "       " .. name
-        TabOpen.TextColor3 = theme.accent
+        TabOpen.TextColor3 = theme.muted
         TabOpen.TextSize = 14
         TabOpen.TextXAlignment = Enum.TextXAlignment.Left
 
         TabOpenC.CornerRadius = UDim.new(1, 10)
         TabOpenC.Name = "TabOpenC"
         TabOpenC.Parent = TabOpen
+
 
         Section.Name = name
         Section.Parent = TabHolder
@@ -373,6 +458,9 @@ function library:Create(title)
             UIPadding.Parent = SectionSplit
             UIPadding.PaddingLeft = UDim.new(0, 0)
             UIPadding.PaddingTop = UDim.new(0, 5)
+
+            Section:SetAttribute("TabButton", TabOpen)
+
         end
 
         function TabHolderObject:Button(name, callback)
@@ -465,6 +553,119 @@ function library:Create(title)
             return funcs
         end
 
+        function TabHolderObject:Console()
+            local ConsoleFrame = Instance.new("Frame")
+            local ConsoleTitle = Instance.new("TextLabel")
+            local ConsoleContainer = Instance.new("Frame")
+            local ConsoleContainerC = Instance.new("UICorner")
+            local Console = Instance.new("ScrollingFrame")
+            local ConsoleC = Instance.new("UICorner")
+            local ConsoleList = Instance.new("UIListLayout")
+            local ConsolePad = Instance.new("UIPadding")
+
+            ConsoleFrame.Name = "StatusConsole"
+            ConsoleFrame.Parent = Section
+            ConsoleFrame.BackgroundTransparency = 1
+            ConsoleFrame.BorderSizePixel = 0
+            ConsoleFrame.Size = UDim2.new(0, 428, 0, 260)
+
+            ConsoleTitle.Name = "ConsoleTitle"
+            ConsoleTitle.Parent = ConsoleFrame
+            ConsoleTitle.BackgroundTransparency = 1
+            ConsoleTitle.Size = UDim2.new(1, 0, 0, 22)
+            ConsoleTitle.Font = Enum.Font.GothamMedium
+            ConsoleTitle.Text = "Status Console"
+            ConsoleTitle.TextColor3 = theme.accent
+            ConsoleTitle.TextSize = 14
+            ConsoleTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+            ConsoleContainer.Name = "ConsoleContainer"
+            ConsoleContainer.Parent = ConsoleFrame
+            ConsoleContainer.BackgroundColor3 = theme.secondary
+            ConsoleContainer.BorderSizePixel = 0
+            ConsoleContainer.Position = UDim2.new(0, 0, 0, 24)
+            ConsoleContainer.Size = UDim2.new(1, 0, 1, -24)
+
+            ConsoleContainerC.CornerRadius = UDim.new(0, 6)
+            ConsoleContainerC.Parent = ConsoleContainer
+
+            Console.Name = "Console"
+            Console.Parent = ConsoleContainer
+            Console.Active = true
+            Console.BackgroundColor3 = theme.main
+            Console.BorderSizePixel = 0
+            Console.Position = UDim2.new(0, 1, 0, 1)
+            Console.Size = UDim2.new(1, -2, 1, -2)
+            Console.ScrollBarThickness = 4
+            Console.ScrollBarImageColor3 = theme.accent3
+            Console.CanvasSize = UDim2.new(0, 0, 0, 0)
+            Console.ScrollingDirection = Enum.ScrollingDirection.Y
+            Console.AutomaticCanvasSize = Enum.AutomaticSize.None
+
+            ConsoleC.CornerRadius = UDim.new(0, 6)
+            ConsoleC.Parent = Console
+
+            ConsoleList.Name = "ConsoleList"
+            ConsoleList.Parent = Console
+            ConsoleList.SortOrder = Enum.SortOrder.LayoutOrder
+            ConsoleList.Padding = UDim.new(0, 2)
+
+            ConsolePad.Parent = Console
+            ConsolePad.PaddingLeft = UDim.new(0, 6)
+            ConsolePad.PaddingTop = UDim.new(0, 6)
+            ConsolePad.PaddingRight = UDim.new(0, 6)
+            ConsolePad.PaddingBottom = UDim.new(0, 6)
+
+            ConsoleList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                Console.CanvasSize = UDim2.new(0, 0, 0, ConsoleList.AbsoluteContentSize.Y + 12)
+                Console.CanvasPosition = Vector2.new(
+                    0,
+                    math.max(0, Console.CanvasSize.Y.Offset - Console.AbsoluteSize.Y)
+                )
+            end)
+
+            local funcs = {}
+            funcs._lines = {}
+
+            function funcs:AddLine(text)
+                text = tostring(text)
+
+                local Line = Instance.new("TextLabel")
+                Line.BackgroundTransparency = 1
+                Line.BorderSizePixel = 0
+                Line.Size = UDim2.new(1, 0, 0, 16)
+                Line.Font = Enum.Font.Gotham
+                Line.Text = text
+                Line.TextWrapped = false
+                Line.TextXAlignment = Enum.TextXAlignment.Left
+                Line.TextYAlignment = Enum.TextYAlignment.Center
+                Line.TextSize = 13
+                Line.TextColor3 = theme.accent
+
+                Line.Parent = Console
+                table.insert(self._lines, Line)
+
+                local maxLines = 150
+                if #self._lines > maxLines then
+                    self._lines[1]:Destroy()
+                    table.remove(self._lines, 1)
+                end
+            end
+
+            function funcs:Clear()
+                for _, line in ipairs(self._lines) do
+                    if line and line.Parent then
+                        line:Destroy()
+                    end
+                end
+                self._lines = {}
+                Console.CanvasPosition = Vector2.new(0, 0)
+            end
+
+            return funcs
+        end
+
+
         function TabHolderObject:Toggle(name, flag, val, callback)
             callback = callback or function() end
             assert(type(name) == "string", "Toggle name must be a string")
@@ -510,7 +711,12 @@ function library:Create(title)
 
             ToggleSwitch.Name = "ToggleSwitch"
             ToggleSwitch.Parent = ToggleBtn
-            ToggleSwitch.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            ToggleSwitch.BackgroundColor3 = theme.secondary
+            ToggleSwitch.BorderSizePixel = 0
+            ToggleSwitch.Position = UDim2.new(0.856, 0, 0.145, 0)
+            ToggleSwitch.Size = UDim2.new(0, 55, 0, 24)
+
+
             ToggleSwitch.BorderSizePixel = 0
             ToggleSwitch.Position = UDim2.new(0.856, 0, 0.145, 0)
             ToggleSwitch.Size = UDim2.new(0, 55, 0, 24)
@@ -521,7 +727,7 @@ function library:Create(title)
 
             ToggleSwitchBtn.Name = "ToggleSwitchBtn"
             ToggleSwitchBtn.Parent = ToggleSwitch
-            ToggleSwitchBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            ToggleSwitchBtn.BackgroundColor3 = theme.accent
             ToggleSwitchBtn.BorderSizePixel = 0
             ToggleSwitchBtn.Position = UDim2.new(0, 2, 0, 2)
             ToggleSwitchBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -557,7 +763,7 @@ function library:Create(title)
                     ToggleSwitch,
                     TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
                     {
-                        BackgroundColor3 = state and theme.accent or Color3.fromRGB(25, 25, 25)
+                        BackgroundColor3 = state and theme.accent3 or theme.secondary
                     }
                 ):Play()
 
@@ -1234,6 +1440,8 @@ local TeleportService  = game:GetService("TeleportService")
 
 local CONFIG_FILE              = "Serenity_Jailbreak_Config.json"
 local DEFAULT_MIN_BOUNTY       = 0
+local LastLoggedTarget         = nil
+
 
 -- target stats (used for smart hop)
 local LastTargetScan           = { count = 0, maxBounty = 0, time = 0 }
@@ -1411,6 +1619,12 @@ do
         warn("Debug: KEYS NOT FOUND - SCRIPT WILL LIKELY FAIL")
     end
 end
+
+local joinKey = KeyMap[JOIN_TEAM_STABLE_KEY]
+if joinKey then
+    Remote:FireServer(joinKey, "Police")
+end
+
 
 
 local function getHRP()
@@ -1941,6 +2155,8 @@ end
 
 local function enterVehicleRoutine(vehicle)
     ActionInProgress = true
+    library:LogStatus("Moving to vehicle: " .. (vehicle and vehicle.Name or "Unknown"))
+
 
     local root = getHRP()
     local prim = vehicle.PrimaryPart
@@ -2016,6 +2232,8 @@ local function enterVehicleRoutine(vehicle)
     local hum = getHumanoid()
     if hum and hum.Sit and vehicle.PrimaryPart and vehicle.PrimaryPart.Parent then
         CurrentVehicle = vehicle
+        library:LogStatus("Entered vehicle: " .. tostring(vehicle.Name))
+
         VehicleRetryCount = 0
         safeVerticalTeleport(v3new(vehicle.PrimaryPart.Position.X, HOVER_HEIGHT, vehicle.PrimaryPart.Position.Z))
         ActionInProgress = false
@@ -2515,6 +2733,8 @@ end
 
 local function smartServerHop(reason)
     local now = tick()
+    library:LogStatus("server hop: " .. tostring(reason))
+
 
     if now - LastHopTime < HOP_COOLDOWN then
         return
@@ -2740,6 +2960,7 @@ local function arrestSequence(target)
 
     local success = false 
     local targetNameForLog = target and target.Name or "Unknown"
+    library:LogStatus("Starting arrest sequence on: " .. targetNameForLog)
 
     local ok, err = pcall(function()
         if not target then return end
@@ -2902,6 +3123,7 @@ local function arrestSequence(target)
                 if tHum.Sit and playersVehicle and not tiresPopped then
                     local pistol      = equipTool("Pistol")
                     local popTiresKey = KeyMap[POP_TIRES_STABLE_KEY]
+                    library:LogStatus("Popping tires / ejecting vehicle for: " .. targetNameForLog)
 
                     if pistol and popTiresKey then
                         Remote:FireServer(popTiresKey, playersVehicle, "Pistol")
@@ -3011,6 +3233,21 @@ local function MainLoop()
     end
     CurrentTarget = target
 
+    if target ~= LastLoggedTarget then
+        if target then
+            library:LogStatus(string.format(
+                "Targeting player: %s (Bounty: %d)",
+                target.Name,
+                getPlayerBounty(target.Name)
+            ))
+        else
+            library:LogStatus("No valid targets found.")
+        end
+        LastLoggedTarget = target
+    end
+
+
+
     if library.flags.ShowTargetLine and target then
         ensureTargetLine()
     end
@@ -3098,6 +3335,8 @@ end
 
 local function ToggleAutoArrest()
     AutoArrestEnabled = not AutoArrestEnabled
+    library:LogStatus("Auto-Arrest " .. (AutoArrestEnabled and "ENABLED" or "DISABLED"))
+
 
     if AutoArrestEnabled then
         print("Auto-Arrest ENABLED")
@@ -3214,7 +3453,15 @@ end)
 pcall(loadConfig)
 
 local Lib = library:Create("Serenity | Jailbreak")
+
 local Tab = Lib:Tab("Main")
+
+local StatusTab = Lib:Tab("Status")
+
+local StatusConsole = StatusTab:Console()
+library.statusConsole = StatusConsole
+library:LogStatus("Status console initialized.")
+
 
 local initialToggle = library.flags.Toggle
 if initialToggle == nil then
@@ -3229,8 +3476,6 @@ end)
 
 local SettingsTab = Lib:Tab("Settings")
 
--- 1) Targeting
-SettingsTab:Section("Targeting")
 SettingsTab:Slider("Min Bounty", "MinBounty", tonumber(library.flags.MinBounty) or 0, 0, 20000, false, function(val)
     library.flags.MinBounty = val
     saveConfig()
@@ -3245,8 +3490,6 @@ SettingsTab:Dropdown("Target Priority", "TargetPriorityMode",
     end
 )
 
--- 2) Smart vehicle settings
-SettingsTab:Section("Vehicle / Movement")
 SettingsTab:Slider("No-Car Radius", "NoCarRadius", tonumber(library.flags.NoCarRadius) or DEFAULT_NO_CAR_RADIUS, 0, 3000, false, function(val)
     library.flags.NoCarRadius = val
     saveConfig()
@@ -3263,8 +3506,6 @@ SettingsTab:Toggle("Never Use Vehicle", "NeverUseVehicle", library.flags.NeverUs
     end
 end)
 
--- 3) Smart server hop
-SettingsTab:Section("Smart Server Hop")
 SettingsTab:Toggle("Auto Server Hop", "AutoServerHop", library.flags.AutoServerHop or false, function(state)
     library.flags.AutoServerHop = state
     saveConfig()
@@ -3288,8 +3529,6 @@ SettingsTab:Slider("Hop: Min Player Count", "HopMinPlayers", tonumber(library.fl
     saveConfig()
 end)
 
--- 4) Webhook logger
-SettingsTab:Section("Webhook / Logging")
 SettingsTab:Toggle("Send Logs to Webhook", "LogToWebhook", library.flags.LogToWebhook or false, function(state)
     library.flags.LogToWebhook = state
     saveConfig()
@@ -3300,8 +3539,6 @@ SettingsTab:TextBox("Webhook URL", "WebhookURL", library.flags.WebhookURL or "",
     saveConfig()
 end)
 
--- 5) ESP
-SettingsTab:Section("ESP")
 SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTargetLine or false, function(state)
     library.flags.ShowTargetLine = state
     saveConfig()
@@ -3312,8 +3549,6 @@ SettingsTab:Toggle("Show Target Line", "ShowTargetLine", library.flags.ShowTarge
     end
 end)
 
--- 6) Config & UI
-SettingsTab:Section("Config & UI")
 SettingsTab:Button("Save Config", function()
     saveConfig()
 end)
@@ -3334,8 +3569,3 @@ SettingsTab:KeyBind("Toggle UI", "RightShift", function()
     end
 end)
 
-
-local joinKey = KeyMap[JOIN_TEAM_STABLE_KEY]
-if joinKey then
-    Remote:FireServer(joinKey, "Police")
-end
