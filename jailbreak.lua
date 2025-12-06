@@ -1476,7 +1476,7 @@ local VEHICLE_EJECT_STABLE_KEY = keys.Eject
 local redeemCode               = keys.RedeemCode
 
 local HOVER_HEIGHT             = 700       
-local MIN_HEIGHT_ABOVE_GROUND  = 0
+local MIN_HEIGHT_ABOVE_GROUND  = 5
 local DROP_OFFSET_STUDS        = 5
 local FLY_SPEED_CAR            = 450
 local FLY_SPEED_FOOT           = 100
@@ -2692,7 +2692,11 @@ end
 
 
 local function queueScriptForTeleport()
-    local code = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()'
+    local code = [[
+        task.wait(3)
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/JJE0909/serenity/refs/heads/main/jailbreak.lua"))()
+    ]]
+
     local q = queue_on_teleport
 
     if not q and syn and syn.queue_on_teleport then
@@ -2709,6 +2713,7 @@ local function queueScriptForTeleport()
         end
     end
 end
+
 
 local function runSmartServerHop(reason)
     local now = tick()
